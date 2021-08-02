@@ -26,3 +26,5 @@ print(gkobj.intercept_lon)
 print(gkobj.slope_lat)
 print(gkobj.intercept_lat)
 print(gkobj.success)
+
+gkobj.write_to_nc('test.nc')

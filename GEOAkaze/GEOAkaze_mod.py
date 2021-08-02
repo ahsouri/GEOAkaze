@@ -357,7 +357,7 @@ class GEOAkaze(object):
 
     def find_matched_i_j(self,matches_var,keypoints1,keypoints2,dist_thr):
         '''
-         A converter to transfer akaze objects to indices
+         A converter to transform the akaze objects to indices
         '''
         import numpy as np
         # Initialize lists
@@ -499,3 +499,42 @@ class GEOAkaze(object):
         msi_gray = np.array(msi_img, dtype='uint16').astype('float32')
 
         return np.transpose(msi_gray),lat_msi,lon_msi
+
+    def write_to_nc(self,output_file):
+        ''' 
+        Write the final results to a netcdf (presentation purpose)
+        ARGS:
+            output_file (char): the name of file for results to be outputted
+        '''
+        from netCDF4 import Dataset
+        import numpy as np
+        from numpy import dtype
+        
+        ncfile = Dataset(output_file,'w')
+        # create the x and y dimensions.
+        ncfile.createDimension('x',np.shape(self.slave)[0])
+        ncfile.createDimension('y',np.shape(self.slave)[1])
+        ncfile.createDimension('z',1)
+        
+        data1 = ncfile.createVariable('master_gray',dtype('uint8').char,('x','y'))
+        data1[:,:] = self.master
+        
+        data2 = ncfile.createVariable('slave_gray',dtype('uint8').char,('x','y'))
+        data2[:,:] = self.slave
+        
+        data3 = ncfile.createVariable('lats_old',dtype('float64').char,('x','y'))
+        data3[:,:] = self.lats_grid
+        
+        data4 = ncfile.createVariable('lons_old',dtype('float64').char,('x','y'))
+        data4[:,:] = self.lons_grid
+        
+        data5 = ncfile.createVariable('lats_new',dtype('float64').char,('x','y'))
+        data5[:,:] = (self.lats_grid-self.intercept_lat)/self.slope_lat
+        
+        data6 = ncfile.createVariable('lons_new',dtype('float64').char,('x','y'))
+        data6[:,:] = (self.lons_grid-self.intercept_lon)/self.slope_lon
+        
+        data7 = ncfile.createVariable('success','u1',('z'))
+        data7[:] = self.success
+        
+        ncfile.close()
