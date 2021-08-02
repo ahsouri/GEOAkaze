@@ -255,8 +255,8 @@ class GEOAkaze(object):
         
         # averaging
         full_moasic[full_moasic<=0] = np.nan
-        self.masksleave = np.isnan(full_moasic)
         mosaic = np.nanmean(full_moasic,axis=2)
+        self.masksleave = np.isnan(mosaic)
 
         return mosaic
 
@@ -288,7 +288,7 @@ class GEOAkaze(object):
         points[:,1] = lat.flatten()
 
         rad = griddata(points, rad.flatten(), (self.lons_grid, self.lats_grid), method='linear')
-        rad[self.masksleave.squeeze()] = np.nan
+        rad[self.masksleave] = np.nan
         
         return rad
 
@@ -509,7 +509,7 @@ class GEOAkaze(object):
         from netCDF4 import Dataset
         import numpy as np
         from numpy import dtype
-        
+
         ncfile = Dataset(output_file,'w')
         # create the x and y dimensions.
         ncfile.createDimension('x',np.shape(self.slave)[0])
