@@ -7,7 +7,8 @@
 
 class GEOAkaze(object):
 
-    def __init__(self,slavefile,masterfile,gridsize,typesat_slave,typesat_master,dist_thr,is_histeq=True,bandindex=1,w1=None,w2=None):
+    def __init__(self,slavefile,masterfile,gridsize,typesat_slave,typesat_master,dist_thr,is_histeq=True,bandindex=1,
+                   w1=None,w2=None,w3=None,w4=None):
             import os.path
             import glob
             '''
@@ -236,13 +237,17 @@ class GEOAkaze(object):
             max_lat.append(np.nanmax(lats[i]))
             min_lon.append(np.nanmin(lons[i]))
             max_lon.append(np.nanmax(lons[i]))
+
         min_lat = np.nanmin(min_lat)
         max_lat = np.nanmax(max_lat)
         min_lon = np.nanmin(min_lon)
         max_lon = np.nanmax(max_lon)
+
         lon = np.arange(min_lon,max_lon,self.gridsize)
         lat = np.arange(min_lat,max_lat,self.gridsize)
+
         self.lons_grid,self.lats_grid = np.meshgrid(lon,lat)
+
         full_moasic = np.zeros((np.shape(self.lons_grid)[0],np.shape(self.lons_grid)[1],len(rads)))
 
         for i in range(len(rads)):
@@ -272,6 +277,7 @@ class GEOAkaze(object):
         ''' 
         import numpy as np
         from scipy.interpolate import griddata 
+
         lon_range = np.array([min(self.lons_grid.flatten()),max(self.lons_grid.flatten())])
         lat_range = np.array([min(self.lats_grid.flatten()),max(self.lats_grid.flatten())])
         
@@ -306,16 +312,22 @@ class GEOAkaze(object):
         from scipy import stats
 
         akaze_mod = cv2.AKAZE_create()
+
         keypoints_1, descriptors_1 = akaze_mod.detectAndCompute(self.master,None)
         keypoints_2, descriptors_2 = akaze_mod.detectAndCompute(self.slave,None)
+
         bf = cv2.BFMatcher(cv2.DescriptorMatcher_BRUTEFORCE_HAMMING, crossCheck=True)
         matches = bf.match(descriptors_1,descriptors_2)
+
         matches = sorted(matches, key = lambda x:x.distance)
+
         master_matched,slave_matched = self.find_matched_i_j(matches,keypoints_1,keypoints_2,self.dist_thr)
+        
         lat_1 = []
         lon_1 = []
         lat_2 = []
         lon_2 = []
+
         for i in range(np.shape(master_matched)[0]):
             lat_1.append(self.lats_grid[int(np.round(master_matched[i,1])),int(np.round(master_matched[i,0]))])
             lon_1.append(self.lons_grid[int(np.round(master_matched[i,1])),int(np.round(master_matched[i,0]))])
@@ -338,13 +350,15 @@ class GEOAkaze(object):
         print('number of matched points: ' + str(len(master_matched)))
 
         self.nmatched = len(master_matched)
-
         self.matched_points_length = len(master_matched)
+
         data = np.column_stack([lat_1, lat_2])
+
         good_lat1, good_lat2 = self.robust_inliner(data)
         self.slope_lat, self.intercept_lat, r_value1, p_value, std_err = stats.linregress(good_lat1,good_lat2)
     
         data = np.column_stack([lon_1, lon_2])
+
         good_lon1, good_lon2 = self.robust_inliner(data)
         self.slope_lon, self.intercept_lon, r_value2, p_value, std_err = stats.linregress(good_lon1,good_lon2)
         
@@ -360,6 +374,7 @@ class GEOAkaze(object):
          A converter to transform the akaze objects to indices
         '''
         import numpy as np
+
         # Initialize lists
         list_kp1 = []
         list_kp2 = []
@@ -444,6 +459,7 @@ class GEOAkaze(object):
         import rasterio
         import utm
         from rasterio.merge import merge
+        from shapely.geometry import Polygon
 
         within_box = []
         msi_date = []
@@ -460,8 +476,17 @@ class GEOAkaze(object):
             corner1 = np.array(utm.to_latlon(temp[0],temp[1],int(zones),'T'))
             temp =  out_trans * (width,height)
             corner4 = np.array(utm.to_latlon(temp[0],temp[1],int(zones),'T') )
-            if (np.max(np.max(self.lons_grid)) < corner4[1] and np.min(np.min(self.lons_grid)) > corner1[1] and  
-                np.max(np.max(self.lats_grid)) < corner1[0] and np.min(np.min(self.lats_grid)) > corner4[0]):
+
+            p_master = Polygon([(corner1[1],corner4[0]), (corner4[1],corner4[0]), (corner4[1],corner1[0]), 
+                             (corner1[1],corner1[0]), (corner1[1],corner4[0])])
+
+            p_slave = Polygon([(np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid))), 
+                          (np.max(np.max(self.lons_grid)),np.min(np.min(self.lats_grid))),
+                          (np.max(np.max(self.lons_grid)),np.max(np.max(self.lats_grid))), 
+                          (np.min(np.min(self.lons_grid)),np.max(np.max(self.lats_grid))),
+                          (np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid)))])
+            
+            if p_master.intersects(p_slave):
                     within_box.append(fname)
                     date_tmp = fname.split("_")
                     date_tmp = date_tmp[-2]
