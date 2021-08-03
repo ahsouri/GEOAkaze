@@ -158,10 +158,10 @@ class GEOAkaze(object):
             # make a mosaic
             mosaic = self.mosaicing(rad,lats,lons)
             # normalizing
-            self.slave = cv2.normalize(mosaic,np.zeros(mosaic.shape, np.double),1.0,0.0,cv2.NORM_MINMAX)
+            self.slave = cv2.normalize(mosaic,np.zeros(mosaic.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
         elif self.typesat_slave == 2 or self.typesat_slave == 3: #landsat or MSI
             r,la,lo = self.read_rad(self.slave_bundle,self.typesat_slave)
-            self.slave = cv2.normalize(r,np.zeros(r.shape, np.double),1.0,0.0,cv2.NORM_MINMAX)
+            self.slave = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
         if self.is_histeq:
            clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize = (20,20))
            self.slave = clahe.apply(np.uint8(self.slave*255))
@@ -191,18 +191,18 @@ class GEOAkaze(object):
                # make a mosaic
                mosaic = self.mosaicing(rad,lats,lons)
                # normalizing
-               self.master = cv2.normalize(mosaic,np.zeros(mosaic.shape, np.double),1.0,0.0,cv2.NORM_MINMAX)
+               self.master = cv2.normalize(mosaic,np.zeros(mosaic.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
             else:
                 r,la,lo = self.read_rad(self.master_bundle,self.typesat_master)
-                self.master = cv2.normalize(r,np.zeros(r.shape, np.double),1.0,0.0,cv2.NORM_MINMAX)
+                self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
         elif self.typesat_master == 2 or self.typesat_master == 4: #landsat
             r,la,lo = self.read_rad(self.master_bundle,self.typesat_master)
             r = self.cutter(r,la,lo)
-            self.master = cv2.normalize(r,np.zeros(r.shape, np.double),1.0,0.0,cv2.NORM_MINMAX)
+            self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
         elif self.typesat_master == 3: #MSI jp2
             r,la,lo  = self.read_MSI(self.master_bundle)
             r = self.cutter(r,la,lo)
-            self.master = cv2.normalize(r,np.zeros(r.shape, np.double),1.0,0.0,cv2.NORM_MINMAX)
+            self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
         if self.is_histeq:
            clahe = cv2.createCLAHE(clipLimit =2.0, tileGridSize=(20,20))
            self.master = clahe.apply(np.uint8(self.master*255))
