@@ -355,16 +355,16 @@ class GEOAkaze(object):
         data = np.column_stack([lat_1, lat_2])
 
         good_lat1, good_lat2 = self.robust_inliner(data)
-        self.slope_lat, self.intercept_lat, r_value1, p_value, std_err = stats.linregress(good_lat1,good_lat2)
+        self.slope_lat, self.intercept_lat, self.r_value1, p_value, std_err = stats.linregress(good_lat1,good_lat2)
     
         data = np.column_stack([lon_1, lon_2])
 
         good_lon1, good_lon2 = self.robust_inliner(data)
-        self.slope_lon, self.intercept_lon, r_value2, p_value, std_err = stats.linregress(good_lon1,good_lon2)
+        self.slope_lon, self.intercept_lon, self.r_value2, p_value, std_err = stats.linregress(good_lon1,good_lon2)
         
         # this part will be replaced by a cross-validation method
         if (abs(self.slope_lat)<0.9 or abs(self.slope_lat)>1.1 or abs(self.slope_lon)<0.9 or abs(self.slope_lon)>1.1 or
-              r_value2<0.95 or r_value1<0.95):
+              self.r_value2<0.95 or self.r_value1<0.95):
            self.success = 0
         else:
            self.success = 1
@@ -502,8 +502,9 @@ class GEOAkaze(object):
         dist_date = np.abs(np.array(msi_date) - float(self.yyyymmdd))
         index_chosen_one = np.argmin(dist_date)
         # now read the most relevant picture
-        
-        src = rasterio.open(msifname[index_chosen_one],driver='JP2OpenJPEG')
+        print('The chosen MSI is ' +  within_box[index_chosen_one])
+
+        src = rasterio.open(within_box[index_chosen_one],driver='JP2OpenJPEG')
         zones = (int(str(src.crs)[-2::]))
         out_trans = src.transform
         msi_img = src.read(1)
@@ -517,10 +518,13 @@ class GEOAkaze(object):
 
         E_msi = np.float32(E_msi)
         N_msi = np.float32(N_msi)
+
         temp = np.array(utm.to_latlon(E_msi.flatten(),N_msi.flatten(),int(zones),'T'))
         temp2 = np.reshape(temp,(2,np.shape(msi_img)[0],np.shape(msi_img)[1]))
+
         lat_msi = np.squeeze(temp2[0,:,:])
         lon_msi = np.squeeze(temp2[1,:,:])
+
         msi_gray = np.array(msi_img, dtype='uint16').astype('float32')
 
         return np.transpose(msi_gray),lat_msi,lon_msi
