@@ -1,5 +1,5 @@
 # UTF-8
-# Apply an akaze algorithm on a satellite image with resepect to
+# Apply the akaze algorithm on a satellite image with resepect to
 # a reference image to rectify the geolocation errors in the first image
 # Amir Souri (ahsouri@cfa.harvard.edu;ahsouri@gmail.com)
 # July 2021
@@ -486,7 +486,7 @@ class GEOAkaze(object):
                           (np.min(np.min(self.lons_grid)),np.max(np.max(self.lats_grid))),
                           (np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid)))])
             
-            if p_master.intersects(p_slave):
+            if p_master.contains(p_slave):
                     within_box.append(fname)
                     date_tmp = fname.split("_")
                     date_tmp = date_tmp[-2]
