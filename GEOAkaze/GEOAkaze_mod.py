@@ -168,6 +168,8 @@ class GEOAkaze(object):
                    lons.append(lo)
                date_slave = np.array(date_slave)
                self.yyyymmdd = np.median(date_slave)
+               # make a mosaic
+               mosaic = self.mosaicing(rad,lats,lons)
             else:
                 fname = self.slave_bundle
                 print(fname)
@@ -177,14 +179,13 @@ class GEOAkaze(object):
                 date_tmp = date_tmp[0]
                 date_slave.append(float(date_tmp))
                 r,la,lo = self.read_rad(fname,self.typesat_slave)
-                rad.append(r)
-                lats.append(la)
-                lons.append(lo)
                 date_slave = np.array(date_slave)
                 self.yyyymmdd = np.median(date_slave)
+                # make a mosaic
+                mosaic = self.mosaicing(r,la,lo)
             
-            # make a mosaic
-            mosaic = self.mosaicing(rad,lats,lons)
+
+            
            
             # normalizing
             self.slave = cv2.normalize(mosaic,np.zeros(mosaic.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
