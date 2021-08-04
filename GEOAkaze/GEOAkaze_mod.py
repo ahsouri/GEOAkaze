@@ -21,20 +21,32 @@ class GEOAkaze(object):
             '''        
             # check if the slavefile is directory or a folder
             
-            if os.path.isdir(os.path.abspath(slavefile)):
+            if os.path.isdir(os.path.abspath(slavefile[0])):
                 # we need to make a mosaic
                 self.is_slave_mosaic = True
-                self.slave_bundle = sorted(glob.glob(slavefile + '/*.nc'))
+                self.slave_bundle = sorted(glob.glob(slavefile[0] + '/*.nc'))
             else:
-                self.is_slave_mosaic = False
-                self.slave_file = os.path.abspath(slavefile)
+                self.slave_bundle = []
+                print(len(slavefile))
+                if len(slavefile) > 1:
+                   self.is_slave_mosaic = True
+                   for fname in slavefile:
+                       self.slave_bundle.append(os.path.abspath(fname))
+                else:
+                    self.is_slave_mosaic = False
+                    self.slave_bundle = os.path.abspath(slavefile[0])
             if os.path.isdir(os.path.abspath(masterfile)):
                  # we need to make a mosaic
                 self.is_master_mosaic = True
                 self.master_bundle = sorted(glob.glob(masterfile + '/*'))
             else:
                 self.is_master_mosaic = False
-                self.master_bundle = os.path.abspath(masterfile)
+                self.master_bundle = []
+                if len(masterfile) > 1:
+                   for fname in masterfile:
+                       self.master_bundle.append(os.path.abspath(fname))  
+                else:   
+                   self.master_bundle = os.path.abspath(masterfile)
 
             self.gridsize = gridsize
             self.is_histeq = is_histeq 
@@ -142,7 +154,22 @@ class GEOAkaze(object):
             rad  = []
             lats = []
             lons = []
-            for fname in self.slave_bundle:
+            if self.is_slave_mosaic:
+               for fname in self.slave_bundle:
+                   print(fname)
+                   date_tmp = fname.split("_")
+                   date_tmp = date_tmp[-3]
+                   date_tmp = date_tmp.split("T")
+                   date_tmp = date_tmp[0]
+                   date_slave.append(float(date_tmp))
+                   r,la,lo = self.read_rad(fname,self.typesat_slave)
+                   rad.append(r)
+                   lats.append(la)
+                   lons.append(lo)
+               date_slave = np.array(date_slave)
+               self.yyyymmdd = np.median(date_slave)
+            else:
+                fname = self.slave_bundle
                 print(fname)
                 date_tmp = fname.split("_")
                 date_tmp = date_tmp[-3]
@@ -153,10 +180,12 @@ class GEOAkaze(object):
                 rad.append(r)
                 lats.append(la)
                 lons.append(lo)
-            date_slave = np.array(date_slave)
-            self.yyyymmdd = np.median(date_slave)
+                date_slave = np.array(date_slave)
+                self.yyyymmdd = np.median(date_slave)
+            
             # make a mosaic
             mosaic = self.mosaicing(rad,lats,lons)
+           
             # normalizing
             self.slave = cv2.normalize(mosaic,np.zeros(mosaic.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
         elif self.typesat_slave == 2 or self.typesat_slave == 3: #landsat or MSI
