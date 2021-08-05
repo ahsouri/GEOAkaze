@@ -290,19 +290,19 @@ class GEOAkaze(object):
                tri = Delaunay(points)
                interpolator = LinearNDInterpolator(tri,rads[i].flatten())
                full_moasic[:,:,i] = interpolator(self.lons_grid, self.lats_grid)
+             # averaging
+           full_moasic[full_moasic<=0] = np.nan
+           mosaic = np.nanmean(full_moasic,axis=2)
+           self.masksleave = np.isnan(mosaic)
         else:
             points = np.zeros((np.size(lons),2))
             points[:,0] = np.array(lons).flatten()
             points[:,1] = np.array(lats).flatten()
             tri = Delaunay(points)
             interpolator = LinearNDInterpolator(tri,rads.flatten())
-            full_moasic = interpolator(self.lons_grid, self.lats_grid)
-
-
-        # averaging
-        full_moasic[full_moasic<=0] = np.nan
-        mosaic = np.nanmean(full_moasic,axis=2)
-        self.masksleave = np.isnan(mosaic)
+            mosaic = interpolator(self.lons_grid, self.lats_grid)
+            mosaic[mosaic<=0] = np.nan
+            self.masksleave = np.isnan(mosaic)
 
         return mosaic
 
