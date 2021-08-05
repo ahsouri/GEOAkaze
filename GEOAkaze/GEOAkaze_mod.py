@@ -163,6 +163,7 @@ class GEOAkaze(object):
                    date_tmp = date_tmp[0]
                    date_slave.append(float(date_tmp))
                    r,la,lo = self.read_rad(fname,self.typesat_slave)
+                   la = self.destriping(la)
                    rad.append(r)
                    lats.append(la)
                    lons.append(lo)
@@ -179,13 +180,11 @@ class GEOAkaze(object):
                 date_tmp = date_tmp[0]
                 date_slave.append(float(date_tmp))
                 r,la,lo = self.read_rad(fname,self.typesat_slave)
+                la = self.destriping(la)
                 date_slave = np.array(date_slave)
                 self.yyyymmdd = np.median(date_slave)
                 # make a mosaic
                 mosaic = self.mosaicing(r,la,lo)
-            
-
-            
            
             # normalizing
             self.slave = cv2.normalize(mosaic,np.zeros(mosaic.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
@@ -278,16 +277,27 @@ class GEOAkaze(object):
 
         self.lons_grid,self.lats_grid = np.meshgrid(lon,lat)
 
-        full_moasic = np.zeros((np.shape(self.lons_grid)[0],np.shape(self.lons_grid)[1],len(rads)))
-
-        for i in range(len(rads)):
-            points = np.zeros((np.size(lons[i]),2))
-            points[:,0] = np.array(lons[i]).flatten()
-            points[:,1] = np.array(lats[i]).flatten()
-            tri = Delaunay(points)
-            interpolator = LinearNDInterpolator(tri,rads[i].flatten())
-            full_moasic[:,:,i] = interpolator(self.lons_grid, self.lats_grid)
+        check_list = isinstance(rads, list)
         
+        if check_list:
+           full_moasic = np.zeros((np.shape(self.lons_grid)[0],np.shape(self.lons_grid)[1],len(rads)))
+        
+           for i in range(len(rads)):
+               points = np.zeros((np.size(lons[i]),2))
+               points[:,0] = np.array(lons[i]).flatten()
+               points[:,1] = np.array(lats[i]).flatten()
+               tri = Delaunay(points)
+               interpolator = LinearNDInterpolator(tri,rads[i].flatten())
+               full_moasic[:,:,i] = interpolator(self.lons_grid, self.lats_grid)
+        else:
+            points = np.zeros((np.size(lons),2))
+            points[:,0] = np.array(lons).flatten()
+            points[:,1] = np.array(lats).flatten()
+            tri = Delaunay(points)
+            interpolator = LinearNDInterpolator(tri,rads.flatten())
+            full_moasic = interpolator(self.lons_grid, self.lats_grid)
+
+
         # averaging
         full_moasic[full_moasic<=0] = np.nan
         mosaic = np.nanmean(full_moasic,axis=2)
@@ -597,3 +607,40 @@ class GEOAkaze(object):
         data7[:] = self.success
         
         ncfile.close()
+
+    def destriping(self,lat):
+        import cv2
+        import numpy as np
+        import matplotlib.pyplot as plt
+        from scipy.interpolate import UnivariateSpline
+
+
+        sobely = cv2.Sobel(lat,cv2.CV_64F,0,1,ksize=5)
+        abs_sobel = np.absolute(sobely)
+        
+        mask = np.zeros_like(lat)
+        mask[ abs_sobel>1.2*np.mean(abs_sobel.flatten())] = 1.0
+        
+
+        lat [ mask != 0 ] = np.nan
+        lat_destriped = np.zeros_like(lat)
+
+        for j in range(0,np.shape(lat)[1]):
+            
+            i = np.arange(0,np.shape(lat)[0])
+            
+            lat_line = lat[:,j]
+
+            i_masked = i[~np.isnan(lat_line)]
+
+            lat_masked = lat_line[~np.isnan(lat_line)]
+
+            spl = UnivariateSpline(i_masked, lat_masked)
+            spl.set_smoothing_factor(0.5)
+            
+            lat_destriped[:,j] = spl(i)
+    
+        return lat_destriped
+        
+        
+
