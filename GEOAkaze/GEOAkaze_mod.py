@@ -164,7 +164,7 @@ class GEOAkaze(object):
                    date_tmp = date_tmp[0]
                    date_slave.append(float(date_tmp))
                    r,la,lo = self.read_rad(fname,self.typesat_slave)
-                   if is_destriping: la = self.destriping(la)
+                   if self.is_destriping: la = self.destriping(la)
                    rad.append(r)
                    lats.append(la)
                    lons.append(lo)
@@ -181,7 +181,7 @@ class GEOAkaze(object):
                 date_tmp = date_tmp[0]
                 date_slave.append(float(date_tmp))
                 r,la,lo = self.read_rad(fname,self.typesat_slave)
-                if is_destriping: la = self.destriping(la)
+                if self.is_destriping: la = self.destriping(la)
                 date_slave = np.array(date_slave)
                 self.yyyymmdd = np.median(date_slave)
                 # make a mosaic
