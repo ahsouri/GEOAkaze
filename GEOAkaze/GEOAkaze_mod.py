@@ -7,7 +7,7 @@
 
 class GEOAkaze(object):
 
-    def __init__(self,slavefile,masterfile,gridsize,typesat_slave,typesat_master,dist_thr,is_histeq=True,bandindex=1,
+    def __init__(self,slavefile,masterfile,gridsize,typesat_slave,typesat_master,dist_thr,is_histeq=True,is_destriping=False,bandindex=1,
                    w1=None,w2=None,w3=None,w4=None):
             import os.path
             import glob
@@ -56,6 +56,7 @@ class GEOAkaze(object):
             self.w1 = w1
             self.w2 = w2
             self.dist_thr = dist_thr
+            self.is_destriping = is_destriping
 
     def read_netcdf(self,filename,var):
         ''' 
@@ -163,7 +164,7 @@ class GEOAkaze(object):
                    date_tmp = date_tmp[0]
                    date_slave.append(float(date_tmp))
                    r,la,lo = self.read_rad(fname,self.typesat_slave)
-                   la = self.destriping(la)
+                   if is_destriping: la = self.destriping(la)
                    rad.append(r)
                    lats.append(la)
                    lons.append(lo)
@@ -180,7 +181,7 @@ class GEOAkaze(object):
                 date_tmp = date_tmp[0]
                 date_slave.append(float(date_tmp))
                 r,la,lo = self.read_rad(fname,self.typesat_slave)
-                la = self.destriping(la)
+                if is_destriping: la = self.destriping(la)
                 date_slave = np.array(date_slave)
                 self.yyyymmdd = np.median(date_slave)
                 # make a mosaic
@@ -278,7 +279,7 @@ class GEOAkaze(object):
         self.lons_grid,self.lats_grid = np.meshgrid(lon,lat)
 
         check_list = isinstance(rads, list)
-        
+
         if check_list:
            full_moasic = np.zeros((np.shape(self.lons_grid)[0],np.shape(self.lons_grid)[1],len(rads)))
         
