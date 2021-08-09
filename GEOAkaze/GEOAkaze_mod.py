@@ -7,7 +7,8 @@
 
 class GEOAkaze(object):
 
-    def __init__(self,slavefile,masterfile,gridsize,typesat_slave,typesat_master,dist_thr,is_histeq=True,is_destriping=False,bandindex=1,
+    def __init__(self,slavefile,masterfile,gridsize,typesat_slave,typesat_master,dist_thr,
+                   is_histeq=True,is_destriping=False,bandindex_slave=1,bandindex_master=None,
                    w1=None,w2=None,w3=None,w4=None):
             import os.path
             import glob
@@ -16,8 +17,20 @@ class GEOAkaze(object):
             ARGS: 
                 slavefile (char): the name or the folder for the target satellite
                 masterfile (char): the name or the folder for the reference image
-                gridsize (float): grid size of mosaicing
-                is_histeq (bool): 
+                gridsize (float): grid size of mosaicing in degree unit
+                is_histeq (bool): applying an adaptive histogram equalization
+                typesat_slave and typesat_master (int):     
+                      0: MethaneAIR
+                      1: MethaneSAT_OSSE(nc) 
+                      2: Landsat(nc)
+                      3: MSI(jp2)
+                      4: MSI(nc)
+                dist_thr (int): a threshold used for filtering bad matches
+                is_destriping (bool): whether to remove strips 
+                bandindex_slave and bandindex_master (int): the index for reading bands in 
+                                the netcdf file (1 = Band1)
+                w1,w2 (int): boundaries for wavelength index of radiance to be averaged. (slave) 
+                w3,w4 (int): boundaries for wavelength index of radiance to be averaged. (master)              
             '''        
             # check if the slavefile is directory or a folder
             
@@ -27,7 +40,6 @@ class GEOAkaze(object):
                 self.slave_bundle = sorted(glob.glob(slavefile[0] + '/*.nc'))
             else:
                 self.slave_bundle = []
-                print(len(slavefile))
                 if len(slavefile) > 1:
                    self.is_slave_mosaic = True
                    for fname in slavefile:
@@ -55,6 +67,8 @@ class GEOAkaze(object):
             self.bandindex = bandindex
             self.w1 = w1
             self.w2 = w2
+            self.w3 = w3
+            self.w4 = w4
             self.dist_thr = dist_thr
             self.is_destriping = is_destriping
 
@@ -106,7 +120,7 @@ class GEOAkaze(object):
         ARGS:
             fname (char): the name of the file
             typesat = 0: MethaneAIR
-                      1: MethaneSAT_OSSE(nc) (not implemented yet)
+                      1: MethaneSAT_OSSE(nc)
                       2: Landsat(nc)
                       3: MSI(jp2)
                       4: MSI(nc)
@@ -117,7 +131,8 @@ class GEOAkaze(object):
         '''
         import numpy as np
         import cv2
-        if typesat == 0:
+        
+        if typesat == 0 or typesat == 1:
            rad = self.read_group_nc(fname,1,'Band' + str(self.bandindex),'Radiance')[:]
            lat = self.read_group_nc(fname,1,'Geolocation','Latitude')[:]
            lon = self.read_group_nc(fname,1,'Geolocation','Longitude')[:]
@@ -126,9 +141,6 @@ class GEOAkaze(object):
                rad = np.nanmean(rad[self.w1:self.w2,:,:],axis=0)
            else:
                rad = np.nanmean(rad[:,:,:],axis=0)
-        elif typesat == 1:
-            print('MethaneSAT_OSSE has not been not implemented yet!')
-            exit()
         elif typesat == 2:
             rad = self.read_netcdf(fname,'Landsat')
             lat = self.read_netcdf(fname,'Lat')
@@ -207,6 +219,7 @@ class GEOAkaze(object):
         '''
         import numpy as np
         import cv2
+
         if self.typesat_master == 0:
             if self.is_master_mosaic:
                # read the data
@@ -255,8 +268,8 @@ class GEOAkaze(object):
         from scipy import interpolate   
         from scipy.interpolate import RegularGridInterpolator
         from scipy.spatial import Delaunay
-        import matplotlib.pyplot as plt
         from scipy.interpolate import LinearNDInterpolator
+
         # first making a mesh
         max_lat = []
         min_lat = []
@@ -294,6 +307,7 @@ class GEOAkaze(object):
            full_moasic[full_moasic<=0] = np.nan
            mosaic = np.nanmean(full_moasic,axis=2)
            self.masksleave = np.isnan(mosaic)
+
         else:
             points = np.zeros((np.size(lons),2))
             points[:,0] = np.array(lons).flatten()
@@ -419,6 +433,7 @@ class GEOAkaze(object):
         # Initialize lists
         list_kp1 = []
         list_kp2 = []
+
         # For each match...
         for mat in matches_var:
         # Get the matching keypoints for each of the images
@@ -431,11 +446,14 @@ class GEOAkaze(object):
            # Get the coordinates
            (x1, y1) = keypoints1[img1_idx].pt
            (x2, y2) = keypoints2[img2_idx].pt
+
            # Append to each list
            list_kp1.append((x1, y1))
            list_kp2.append((x2, y2))
+
         list_kp1 = np.array(list_kp1)
         list_kp2 = np.array(list_kp2)
+        
         return list_kp1,list_kp2
 
     def robust_inliner(self,data):
@@ -449,6 +467,7 @@ class GEOAkaze(object):
         # Fit line using all data
         from skimage.measure import LineModelND, ransac
         import numpy as np
+
         model = LineModelND()
         model.estimate(data)
 
@@ -468,6 +487,7 @@ class GEOAkaze(object):
         # Compare estimated coefficients
         doplot = False
         file_plot = './ransac_test.png'
+
         if doplot == True:
            fig, ax = plt.subplots()
            ax.plot(data[inliers, 0], data[inliers, 1], '.b', alpha=0.6,
@@ -610,9 +630,16 @@ class GEOAkaze(object):
         ncfile.close()
 
     def destriping(self,lat):
+        ''' 
+        in case of the presence of strips in latitute data, we can use this
+        method (sobel filter + 1D spline interpolation)
+        ARGS:
+            lat (array, float): latitude with strips
+        OUT:
+            lat_destriped (array,float): destriped latitude
+        '''
         import cv2
         import numpy as np
-        import matplotlib.pyplot as plt
         from scipy.interpolate import UnivariateSpline
 
 
@@ -626,14 +653,10 @@ class GEOAkaze(object):
         lat [ mask != 0 ] = np.nan
         lat_destriped = np.zeros_like(lat)
 
-        for j in range(0,np.shape(lat)[1]):
-            
+        for j in range(0,np.shape(lat)[1]):  
             i = np.arange(0,np.shape(lat)[0])
-            
             lat_line = lat[:,j]
-
             i_masked = i[~np.isnan(lat_line)]
-
             lat_masked = lat_line[~np.isnan(lat_line)]
 
             spl = UnivariateSpline(i_masked, lat_masked)
