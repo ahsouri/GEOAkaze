@@ -147,9 +147,9 @@ class GEOAkaze(object):
            else:
                rad = np.nanmean(rad[:,:,:],axis=0)
         elif typesat == 2:
-            rad = self.read_netcdf(fname,'landsat_gray')
-            lat = self.read_netcdf(fname,'lat_landsat')
-            lon = self.read_netcdf(fname,'lon_landsat')
+            rad = self.read_netcdf(fname,'Landsat')
+            lat = self.read_netcdf(fname,'Lat')
+            lon = self.read_netcdf(fname,'Lon')
         elif self.typesat == 4:
             rad = self.read_netcdf(fname,'MSI_clim')
             lat = self.read_netcdf(fname,'lat')
