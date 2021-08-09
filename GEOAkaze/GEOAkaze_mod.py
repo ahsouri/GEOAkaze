@@ -64,7 +64,7 @@ class GEOAkaze(object):
             self.is_histeq = is_histeq 
             self.typesat_slave = typesat_slave
             self.typesat_master = typesat_master
-            self.bandindex = bandindex
+            self.bandindex = bandindex_slave
             self.w1 = w1
             self.w2 = w2
             self.w3 = w3
