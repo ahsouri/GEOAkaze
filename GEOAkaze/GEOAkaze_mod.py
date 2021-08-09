@@ -71,6 +71,11 @@ class GEOAkaze(object):
             self.w4 = w4
             self.dist_thr = dist_thr
             self.is_destriping = is_destriping
+            self.intercept_lat = -999
+            self.slope_lat = 1.0
+            self.intercept_lon = -999
+            self.slope_lon = 1.0
+            self.success = 0          
 
     def read_netcdf(self,filename,var):
         ''' 
@@ -478,7 +483,6 @@ class GEOAkaze(object):
         except:
             print('ransac cannot find outliers, failed!')
             self.success = 0
-            exit()
         outliers = inliers == False
         # Predict data of estimated models
         line_x = np.arange(-360, 360)
