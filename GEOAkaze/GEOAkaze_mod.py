@@ -413,7 +413,7 @@ class GEOAkaze(object):
         self.matched_points_length = len(master_matched)
 
         data = np.column_stack([lat_1, lat_2])
-
+        
         good_lat1, good_lat2 = self.robust_inliner(data)
         self.slope_lat, self.intercept_lat, self.r_value1, p_value, std_err = stats.linregress(good_lat1,good_lat2)
     
@@ -474,8 +474,11 @@ class GEOAkaze(object):
         import numpy as np
 
         model = LineModelND()
-        model.estimate(data)
-
+        try:
+           model.estimate(data)
+        except:
+           print('not enough matched points to work with')
+           self.success = 0
         # Robustly fit linear model with RANSAC algorithm
         try:
             model_robust, inliers = ransac(data, LineModelND, min_samples=10, residual_threshold=0.0005,
