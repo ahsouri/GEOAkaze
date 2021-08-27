@@ -32,7 +32,8 @@ class GEOAkaze(object):
                 w1,w2 (int): boundaries for wavelength index of radiance to be averaged. (slave) 
                 w3,w4 (int): boundaries for wavelength index of radiance to be averaged. (master)              
             '''        
-            # check if the slavefile is directory or a folder
+
+            # check if the slavefile is a folder or a file
             
             if os.path.isdir(os.path.abspath(slavefile[0])):
                 # we need to make a mosaic
@@ -48,7 +49,8 @@ class GEOAkaze(object):
                     self.is_slave_mosaic = False
                     self.slave_bundle = os.path.abspath(slavefile[0])
             
-            
+            # check if the masterfile is a folder or a file
+
             if os.path.isdir(os.path.abspath(masterfile[0])):
                  # we need to make a mosaic
                 self.is_master_mosaic = True
@@ -87,7 +89,7 @@ class GEOAkaze(object):
             filename (char): the name of file
             var (char): the target variable
         OUT:
-            variable
+            var (float)
         '''
         from netCDF4 import Dataset
         import numpy as np
@@ -106,7 +108,7 @@ class GEOAkaze(object):
             group [num_groups] (list char): the name of group
             var (char): the target variable
         OUT:
-            variable
+            var (float)
         '''
         from netCDF4 import Dataset
         import numpy as np
@@ -189,6 +191,7 @@ class GEOAkaze(object):
                    rad.append(r)
                    lats.append(la)
                    lons.append(lo)
+
                date_slave = np.array(date_slave)
                self.yyyymmdd = np.median(date_slave)
                # make a mosaic
@@ -221,7 +224,7 @@ class GEOAkaze(object):
         else:
            self.slave = np.uint8(self.slave*255)
         
-        # we will need this to append master img to L1 file
+        # we will need it to append master img to L1 file
         self.slavelat = la
         self.slavelon = lo
         self.rawslave = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
@@ -234,7 +237,6 @@ class GEOAkaze(object):
         '''
         import numpy as np
         import cv2
-        
         
         check_list = isinstance(self.master_bundle, list)
 
@@ -252,7 +254,6 @@ class GEOAkaze(object):
                    lons.append(lons)
                # make a mosaic
                mosaic = self.mosaicing(rad,lats,lons)
-               # normalizing
                
             else:
                 r,la,lo = self.read_rad(self.master_bundle,self.typesat_master,self.bandindex_master)
@@ -264,6 +265,8 @@ class GEOAkaze(object):
             r = self.cutter(r,la,lo)
         
         self.rawmaster = r/10000.0 # reflectance
+
+         # normalizing
         self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX) 
 
         if self.is_histeq:
@@ -276,7 +279,7 @@ class GEOAkaze(object):
         '''
         Merge (mosaic) several images together based on 
         their latitude/longitude. The final box is made of
-        min/max of laitude and longitude among all the data
+        min/max of laitude and longitude based on all data
         ARGS:
             rads (list, floats): list of radiance arrays
             lons, lats (list, floats): list of longitude/latitude arrays
@@ -284,9 +287,7 @@ class GEOAkaze(object):
             mosaic, gridded_lat, gridded_lon
         ''' 
         import numpy as np     
-        from scipy.interpolate import griddata 
         from scipy import interpolate   
-        from scipy.interpolate import RegularGridInterpolator
         from scipy.spatial import Delaunay
         from scipy.interpolate import LinearNDInterpolator
 
@@ -324,10 +325,10 @@ class GEOAkaze(object):
                tri = Delaunay(points)
                interpolator = LinearNDInterpolator(tri,rads[i].flatten())
                full_moasic[:,:,i] = interpolator(self.lons_grid, self.lats_grid)
-             # averaging
+            # averaging
            full_moasic[full_moasic<=0] = np.nan
            mosaic = np.nanmean(full_moasic,axis=2)
-           self.masksleave = np.isnan(mosaic)
+           self.maskslave = np.isnan(mosaic)
 
         else:
             points = np.zeros((np.size(lons),2))
@@ -337,7 +338,7 @@ class GEOAkaze(object):
             interpolator = LinearNDInterpolator(tri,rads.flatten())
             mosaic = interpolator(self.lons_grid, self.lats_grid)
             mosaic[mosaic<=0] = np.nan
-            self.masksleave = np.isnan(mosaic)
+            self.maskslave = np.isnan(mosaic)
 
         return mosaic
 
@@ -370,7 +371,7 @@ class GEOAkaze(object):
         points[:,1] = lat.flatten()
 
         rad = griddata(points, rad.flatten(), (self.lons_grid, self.lats_grid), method='linear')
-        rad[self.masksleave] = np.nan
+        rad[self.maskslave] = np.nan
         
         return rad
 
@@ -381,7 +382,7 @@ class GEOAkaze(object):
                Pattern Anal. Machine Intell, 34(7):1281–1298, 2011.
         OUT:
             slope_lon,slope_lat,intercept_lon,intercept_lat (float) : correction factors
-            success (0 or 1): 0->failed, 1->succeed
+            success (0 or 1): 0->failed, 1->succeeded
         ''' 
         import cv2
         import numpy as np
@@ -483,7 +484,7 @@ class GEOAkaze(object):
         ARGS:
            data array [x,y] (float)
         OUT:
-           inliners
+           inliners [x,y] (float)
         ''' 
         # Fit line using all data
         from skimage.measure import LineModelND, ransac
@@ -703,7 +704,7 @@ class GEOAkaze(object):
            ncgroup = ncfile.createGroup('SupportingData')
            data = ncgroup.createVariable('Reference_IMG',np.float64,('y','x'))  
         except:
-            # already there
+            # already is there
            data = ncfile.groups['SupportingData'].variables['Reference_IMG']
 
         points = np.zeros((np.size(self.lats_grid),2))
@@ -741,7 +742,6 @@ class GEOAkaze(object):
         llcrnrlat = min(lats_grid_corrected.flatten())
         urcrnrlon = max(lons_grid_corrected.flatten())
         urcrnrlat = max(lats_grid_corrected.flatten())
-       
         
         make_kmz(lons_grid_corrected,lats_grid_corrected,self.slave,fname)
     
