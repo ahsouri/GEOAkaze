@@ -49,10 +49,10 @@ class GEOAkaze(object):
                     self.slave_bundle = os.path.abspath(slavefile[0])
             
             
-            if os.path.isdir(os.path.abspath(masterfile)):
+            if os.path.isdir(os.path.abspath(masterfile[0])):
                  # we need to make a mosaic
                 self.is_master_mosaic = True
-                self.master_bundle = sorted(glob.glob(masterfile + '/*'))
+                self.master_bundle = sorted(glob.glob(masterfile[0] + '/*'))
             else:
                 self.is_master_mosaic = False
                 self.master_bundle = []
@@ -60,13 +60,14 @@ class GEOAkaze(object):
                    for fname in masterfile:
                        self.master_bundle.append(os.path.abspath(fname))  
                 else:   
-                   self.master_bundle = os.path.abspath(masterfile)
+                   self.master_bundle = os.path.abspath(masterfile[0])
 
             self.gridsize = gridsize
             self.is_histeq = is_histeq 
             self.typesat_slave = typesat_slave
             self.typesat_master = typesat_master
-            self.bandindex = bandindex_slave
+            self.bandindex_slave = bandindex_slave
+            self.bandindex_master = bandindex_master
             self.w1 = w1
             self.w2 = w2
             self.w3 = w3
@@ -121,7 +122,7 @@ class GEOAkaze(object):
         nc_fid.close()
         return np.squeeze(out) 
 
-    def read_rad(self,fname,typesat):
+    def read_rad(self,fname,typesat,bandindex=None):
         '''
         Read the intensity for differrent files/satellites
         ARGS:
@@ -140,7 +141,7 @@ class GEOAkaze(object):
         import cv2
         
         if typesat == 0 or typesat == 1:
-           rad = self.read_group_nc(fname,1,'Band' + str(self.bandindex),'Radiance')[:]
+           rad = self.read_group_nc(fname,1,'Band' + str(bandindex),'Radiance')[:]
            lat = self.read_group_nc(fname,1,'Geolocation','Latitude')[:]
            lon = self.read_group_nc(fname,1,'Geolocation','Longitude')[:]
            rad [rad <= 0] = np.nan
@@ -168,6 +169,7 @@ class GEOAkaze(object):
         import numpy as np
         import cv2
 
+        
         date_slave = []
         if self.typesat_slave == 0:
             # read the data
@@ -182,7 +184,7 @@ class GEOAkaze(object):
                    date_tmp = date_tmp.split("T")
                    date_tmp = date_tmp[0]
                    date_slave.append(float(date_tmp))
-                   r,la,lo = self.read_rad(fname,self.typesat_slave)
+                   r,la,lo = self.read_rad(fname,self.typesat_slave,self.bandindex_slave)
                    if self.is_destriping: la = self.destriping(la)
                    rad.append(r)
                    lats.append(la)
@@ -199,7 +201,7 @@ class GEOAkaze(object):
                 date_tmp = date_tmp.split("T")
                 date_tmp = date_tmp[0]
                 date_slave.append(float(date_tmp))
-                r,la,lo = self.read_rad(fname,self.typesat_slave)
+                r,la,lo = self.read_rad(fname,self.typesat_slave,self.bandindex_slave)
                 if self.is_destriping: la = self.destriping(la)
                 date_slave = np.array(date_slave)
                 self.yyyymmdd = np.median(date_slave)
@@ -232,15 +234,19 @@ class GEOAkaze(object):
         '''
         import numpy as np
         import cv2
+        
+        
+        check_list = isinstance(self.master_bundle, list)
 
         if self.typesat_master == 0:
-            if self.is_master_mosaic:
+            if check_list:
                # read the data
                rad  = []
                lats = []
                lons = []
                for fname in self.master_bundle:
-                   r,la,lo = rad.append(self.read_rad(fname,typesat,bandindex,w1,w2))
+                   r,la,lo = rad.append(self.read_rad(fname,self.typesat_master, \
+                                 self.bandindex_master,self.w3,self.w4))
                    rad.append(r)
                    lats.append(lats)
                    lons.append(lons)
@@ -249,7 +255,7 @@ class GEOAkaze(object):
                # normalizing
                
             else:
-                r,la,lo = self.read_rad(self.master_bundle,self.typesat_master)
+                r,la,lo = self.read_rad(self.master_bundle,self.typesat_master,self.bandindex_master)
         elif self.typesat_master == 2 or self.typesat_master == 4: #landsat
             r,la,lo = self.read_rad(self.master_bundle,self.typesat_master)
             r = self.cutter(r,la,lo)
@@ -417,7 +423,7 @@ class GEOAkaze(object):
         pts2[:,0] = lon_2
         pts2[:,1] = lat_2
 
-        print('number of matched points: ' + str(len(master_matched)))
+        print('potential number of matched points: ' + str(len(master_matched)))
 
         self.nmatched = len(master_matched)
         self.matched_points_length = len(master_matched)
@@ -711,6 +717,12 @@ class GEOAkaze(object):
         ncfile.close()
 
     def savetokmz(self,fname):
+        ''' 
+        saving the mosaic of slave to a kmz file
+        ARGS:
+            fname (char): the kmz file
+        '''
+
         from .make_kml import make_kmz
         import matplotlib.pyplot as plt
         import numpy as np
@@ -732,7 +744,32 @@ class GEOAkaze(object):
        
         
         make_kmz(lons_grid_corrected,lats_grid_corrected,self.slave,fname)
+    
+    def savetotxt(self,fname):
+        ''' 
+        saving the correction factors to a txt file
+        ARGS:
+            fname (char): the prefix part of  the txt file.
+        '''
+        import os.path
 
+        filename = str(fname) + '_correction_factors_akaze.txt'
+        
+        if os.path.isfile(filename):
+           file1 = open(filename, "a")
+           L =  str(self.slope_lon) +',' + str(self.slope_lat) + ',' +str(self.intercept_lon) + \
+                    ',' + str(self.intercept_lat) + ',' + str(self.r_value1) +',' + \
+                        str(self.r_value2) + ',' + str(self.success)
+           file1.writelines(L)
+        else:
+           L1 = 'file_bundle,slope_lon,slope_lat,intercept_lon,intercept_lat,rvalue_lon,rvalue_lat,success'
+           L2 = str(self.slope_lon) +',' + str(self.slope_lat) + ',' +str(self.intercept_lon) + \
+                    ',' + str(self.intercept_lat) + ',' + str(self.r_value1) +',' + \
+                        str(self.r_value2) + ',' + str(self.success)
+
+           file1 = open(filename, "w")
+           #file1.writelines(L1)
+           file1.writelines(L2)
         
         
 

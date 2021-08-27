@@ -58,8 +58,11 @@ def make_kml(llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat,
         screen.size.xunits = Units.fraction
         screen.size.yunits = Units.fraction
         screen.visibility = 1
-    kmzfile = kw.pop('kmzfile','/Users/asouri/Documents/Methane_SAT_OSSEs/Main/GEOAkaze/GEOAkaze/overlay.kmz')
+
+    kmzfile = kw.pop('kmzfile')
+
     kml.savekmz(kmzfile)
+
 def gearth_fig(llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat, pixels=1024):
     """Return a Matplotlib `fig` and `ax` handles for a Google-Earth Image."""
     aspect = np.cos(np.mean([llcrnrlat, urcrnrlat]) * np.pi/180.0)
@@ -81,6 +84,7 @@ def gearth_fig(llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat, pixels=1024):
     ax.set_xlim(llcrnrlon, urcrnrlon)
     ax.set_ylim(llcrnrlat, urcrnrlat)
     return fig, ax
+
 def safe_convolve(ts,agg_fac):
     # Aggregate
     import scipy as sp
@@ -96,7 +100,8 @@ def safe_convolve(ts,agg_fac):
     y_ct = sp.ndimage.filters.convolve(ct, weights, mode='constant')
     # Return mean
     return y/y_ct
-def make_kmz(lon_coadd,lat_coadd,var_coadd,outfile_pre,vmin=None,vmax=None,legend=True,cmap=None):
+
+def make_kmz(lon_coadd,lat_coadd,var_coadd,outfile_pre,vmin=None,vmax=None,legend=None,cmap=None):
     import os
     # Pixel dimensions
     pixels = 1024 * 10
@@ -114,6 +119,7 @@ def make_kmz(lon_coadd,lat_coadd,var_coadd,outfile_pre,vmin=None,vmax=None,legen
                          urcrnrlon=lon_coadd.max(),
                          urcrnrlat=lat_coadd.max(),
                          pixels=pixels)
+
     cs = ax.pcolormesh(lon_coadd, lat_coadd, var_coadd, cmap=cm.bone,vmin=vmin,vmax=vmax)
     ax.set_axis_off()
     fig.savefig(overlay_png, transparent=False, format='png')
@@ -123,20 +129,19 @@ def make_kmz(lon_coadd,lat_coadd,var_coadd,outfile_pre,vmin=None,vmax=None,legen
     ysize = np.ptp([lat_coadd.max(), lat_coadd.min()])
     aspect = ysize / xsize
     # Plot Colorbar
-    outfile = outfile_pre + '.kmz'
+    outfile = outfile_pre 
     legend_png = outfile_pre+'_legend.png'
+
     if(legend):
         # Make the KML File
         make_kml(llcrnrlon=lon_coadd.min(), llcrnrlat=lat_coadd.min(),
                 urcrnrlon=lon_coadd.max(), urcrnrlat=lat_coadd.max(),
-                figs=[overlay_png], colorbar='legend.png',
-                kmzfile=outfile)
+                figs=[overlay_png],kmzfile = outfile, colorbar='legend.png')
     else:
         # Make the KML File
         make_kml(llcrnrlon=lon_coadd.min(), llcrnrlat=lat_coadd.min(),
                 urcrnrlon=lon_coadd.max(), urcrnrlat=lat_coadd.max(),
-                figs=[overlay_png],
-                kmzfile=outfile)
+                figs=[overlay_png],kmzfile = outfile)
     # fig = plt.figure(figsize=(0.5, 2.0), facecolor=None, frameon=False)
     # ax = fig.add_axes([0.0, 0.05, 0.2, 0.9])
     # cb = fig.colorbar(cs, cax=ax)
@@ -145,7 +150,6 @@ def make_kmz(lon_coadd,lat_coadd,var_coadd,outfile_pre,vmin=None,vmax=None,legen
     fig = plt.figure(figsize=(8, 3), facecolor=None, frameon=False)
     ax  = fig.add_axes([0.05, 0.80, 0.9, 0.15])
     norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
-    plt.bone()
     #cb = mpl.colorbar.ColorbarBase(ax, cmap=cmap,norm=norm,
     #                               orientation='horizontal')
     fig.savefig(legend_png, transparent=True, format='png')  # Change transparent to True if your colorbar is not on space :)
