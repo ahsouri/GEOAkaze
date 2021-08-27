@@ -47,6 +47,8 @@ class GEOAkaze(object):
                 else:
                     self.is_slave_mosaic = False
                     self.slave_bundle = os.path.abspath(slavefile[0])
+            
+            
             if os.path.isdir(os.path.abspath(masterfile)):
                  # we need to make a mosaic
                 self.is_master_mosaic = True
@@ -71,9 +73,9 @@ class GEOAkaze(object):
             self.w4 = w4
             self.dist_thr = dist_thr
             self.is_destriping = is_destriping
-            self.intercept_lat = -999
+            self.intercept_lat = 0.0
             self.slope_lat = 1.0
-            self.intercept_lon = -999
+            self.intercept_lon = 0.0
             self.slope_lon = 1.0
             self.success = 0          
 
@@ -204,18 +206,24 @@ class GEOAkaze(object):
                 # make a mosaic
                 mosaic = self.mosaicing(r,la,lo)
            
-            # normalizing
-            self.slave = cv2.normalize(mosaic,np.zeros(mosaic.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
+
         elif self.typesat_slave == 2 or self.typesat_slave == 3: #landsat or MSI
             r,la,lo = self.read_rad(self.slave_bundle,self.typesat_slave)
-            self.slave = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
+
+        # normalizing
+        self.slave = cv2.normalize(mosaic,np.zeros(mosaic.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
+        
         if self.is_histeq:
            clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize = (20,20))
            self.slave = clahe.apply(np.uint8(self.slave*255))
         else:
            self.slave = np.uint8(self.slave*255)
-
         
+        # we will need this to append master img to L1 file
+        self.slavelat = la
+        self.slavelon = lo
+        self.rawslave = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
+
     def readmaster(self): 
         '''
         Read the master (reference) image for different satellite
@@ -239,18 +247,19 @@ class GEOAkaze(object):
                # make a mosaic
                mosaic = self.mosaicing(rad,lats,lons)
                # normalizing
-               self.master = cv2.normalize(mosaic,np.zeros(mosaic.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
+               
             else:
                 r,la,lo = self.read_rad(self.master_bundle,self.typesat_master)
-                self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
         elif self.typesat_master == 2 or self.typesat_master == 4: #landsat
             r,la,lo = self.read_rad(self.master_bundle,self.typesat_master)
             r = self.cutter(r,la,lo)
-            self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
         elif self.typesat_master == 3: #MSI jp2
             r,la,lo  = self.read_MSI(self.master_bundle)
             r = self.cutter(r,la,lo)
-            self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
+        
+        self.rawmaster = r/10000.0 # reflectance
+        self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX) 
+
         if self.is_histeq:
            clahe = cv2.createCLAHE(clipLimit =2.0, tileGridSize=(20,20))
            self.master = clahe.apply(np.uint8(self.master*255))
@@ -280,6 +289,7 @@ class GEOAkaze(object):
         min_lat = []
         max_lon = []
         min_lon = []
+
         for i in range(len(rads)):
             min_lat.append(np.nanmin(lats[i]))
             max_lat.append(np.nanmax(lats[i]))
@@ -672,6 +682,57 @@ class GEOAkaze(object):
             lat_destriped[:,j] = spl(i)
     
         return lat_destriped
+
+    def append_master(self):  
+        ''' 
+          append master image to the L1 data
+        ''' 
+        from netCDF4 import Dataset
+        import numpy as np
+        from scipy.interpolate import griddata 
+
+        ncfile = Dataset(self.slave_bundle,'a',format="NETCDF4")
+
+        try:
+           ncgroup = ncfile.createGroup('SupportingData')
+           data = ncgroup.createVariable('Reference_IMG',np.float64,('y','x'))  
+        except:
+            # already there
+           data = ncfile.groups['SupportingData'].variables['Reference_IMG']
+
+        points = np.zeros((np.size(self.lats_grid),2))
+        points[:,0] = self.lons_grid.flatten()
+        points[:,1] = self.lats_grid.flatten()
+
+        img_master = griddata(points, self.rawmaster.flatten(), (self.slavelon, self.slavelat), method='nearest')
+ 
+        data[:,:] = img_master
+
+        ncfile.close()
+
+    def savetokmz(self,fname):
+        from .make_kml import make_kmz
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from scipy.interpolate import griddata
+ 
+        if self.success == 1:
+           lats_grid_corrected = (self.lats_grid-self.intercept_lat)/self.slope_lat
+           lons_grid_corrected = (self.lons_grid-self.intercept_lon)/self.slope_lon
+        else:
+           lats_grid_corrected = self.lats_grid
+           lons_grid_corrected = self.lons_grid
+
+        slaveimg = np.array(self.slave) 
+
+        llcrnrlon = min(lons_grid_corrected.flatten())
+        llcrnrlat = min(lats_grid_corrected.flatten())
+        urcrnrlon = max(lons_grid_corrected.flatten())
+        urcrnrlat = max(lats_grid_corrected.flatten())
+       
+        
+        make_kmz(lons_grid_corrected,lats_grid_corrected,self.slave,fname)
+
         
         
 
