@@ -124,7 +124,7 @@ class GEOAkaze(object):
         nc_fid.close()
         return np.squeeze(out) 
 
-    def read_rad(self,fname,typesat,bandindex=None):
+    def read_rad(self,fname,typesat,bandindex=None,w1=None,w2=None):
         '''
         Read the intensity for differrent files/satellites
         ARGS:
@@ -147,8 +147,8 @@ class GEOAkaze(object):
            lat = self.read_group_nc(fname,1,'Geolocation','Latitude')[:]
            lon = self.read_group_nc(fname,1,'Geolocation','Longitude')[:]
            rad [rad <= 0] = np.nan
-           if not (self.w1 is None): #w1 and w2 should be set or none of them
-               rad = np.nanmean(rad[self.w1:self.w2,:,:],axis=0)
+           if not (w1 is None): #w1 and w2 should be set or none of them
+               rad = np.nanmean(rad[w1:w2,:,:],axis=0)
            else:
                rad = np.nanmean(rad[:,:,:],axis=0)
         elif typesat == 2:
@@ -175,10 +175,10 @@ class GEOAkaze(object):
         date_slave = []
         if self.typesat_slave == 0:
             # read the data
-            rad  = []
-            lats = []
-            lons = []
             if self.is_slave_mosaic:
+               rad  = []
+               lats = []
+               lons = []
                for fname in self.slave_bundle:
                    print(fname)
                    date_tmp = fname.split("_")
@@ -186,7 +186,7 @@ class GEOAkaze(object):
                    date_tmp = date_tmp.split("T")
                    date_tmp = date_tmp[0]
                    date_slave.append(float(date_tmp))
-                   r,la,lo = self.read_rad(fname,self.typesat_slave,self.bandindex_slave)
+                   r,la,lo = self.read_rad(fname,self.typesat_slave,self.bandindex_slave,self.w1,self.w2)
                    if self.is_destriping: la = self.destriping(la)
                    rad.append(r)
                    lats.append(la)
@@ -204,7 +204,7 @@ class GEOAkaze(object):
                 date_tmp = date_tmp.split("T")
                 date_tmp = date_tmp[0]
                 date_slave.append(float(date_tmp))
-                r,la,lo = self.read_rad(fname,self.typesat_slave,self.bandindex_slave)
+                r,la,lo = self.read_rad(fname,self.typesat_slave,self.bandindex_slave,self.w1,self.w2)
                 if self.is_destriping: la = self.destriping(la)
                 date_slave = np.array(date_slave)
                 self.yyyymmdd = np.median(date_slave)
@@ -241,22 +241,27 @@ class GEOAkaze(object):
         check_list = isinstance(self.master_bundle, list)
 
         if self.typesat_master == 0:
-            if check_list:
-               # read the data
+            if self.is_slave_mosaic:
                rad  = []
                lats = []
                lons = []
                for fname in self.master_bundle:
-                   r,la,lo = rad.append(self.read_rad(fname,self.typesat_master, \
-                                 self.bandindex_master,self.w3,self.w4))
+                   print(fname)
+                   r,la,lo = self.read_rad(fname,self.typesat_master,self.bandindex_master,self.w3,self.w4)
+                   if self.is_destriping: la = self.destriping(la)
                    rad.append(r)
-                   lats.append(lats)
-                   lons.append(lons)
-               # make a mosaic
-               mosaic = self.mosaicing(rad,lats,lons)
-               
+                   lats.append(la)
+                   lons.append(lo)
+
+               r = self.mosaicing(rad,lats,lons)  
             else:
-                r,la,lo = self.read_rad(self.master_bundle,self.typesat_master,self.bandindex_master)
+                fname = self.master_bundle
+                print(fname)
+                r,la,lo = self.read_rad(fname,self.typesat_master,self.bandindex_master,self.w3,self.w4)
+                if self.is_destriping: la = self.destriping(la)
+                # make a mosaic
+                r = self.mosaicing(r,la,lo)
+
         elif self.typesat_master == 2 or self.typesat_master == 4: #landsat
             r,la,lo = self.read_rad(self.master_bundle,self.typesat_master)
             r = self.cutter(r,la,lo)
@@ -270,7 +275,7 @@ class GEOAkaze(object):
         self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX) 
 
         if self.is_histeq:
-           clahe = cv2.createCLAHE(clipLimit =2.0, tileGridSize=(20,20))
+           clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize=(20,20))
            self.master = clahe.apply(np.uint8(self.master*255))
         else:
            self.master = np.uint8(self.master*255)
