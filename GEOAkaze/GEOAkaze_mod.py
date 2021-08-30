@@ -752,10 +752,7 @@ class GEOAkaze(object):
         llcrnrlat = min(lats_grid_corrected.flatten())
         urcrnrlon = max(lons_grid_corrected.flatten())
         urcrnrlat = max(lats_grid_corrected.flatten())
-        
-        print(np.shape(lons_grid_corrected))
-        print(np.shape(lats_grid_corrected))
-        print(np.shape(self.slave))
+    
 
         make_kmz(lons_grid_corrected,lats_grid_corrected,self.slave,fname)
     
