@@ -172,9 +172,11 @@ class GEOAkaze(object):
         import cv2
 
         
-        date_slave = []
+        
+
         if self.typesat_slave == 0:
             # read the data
+            date_slave = []
             if self.is_slave_mosaic:
                rad  = []
                lats = []
@@ -195,7 +197,7 @@ class GEOAkaze(object):
                date_slave = np.array(date_slave)
                self.yyyymmdd = np.median(date_slave)
                # make a mosaic
-               mosaic = self.mosaicing(rad,lats,lons)
+               mosaic,self.lats_grid,self.lons_grid,self.maskslave = self.mosaicing(rad,lats,lons)
             else:
                 fname = self.slave_bundle
                 print(fname)
@@ -209,7 +211,7 @@ class GEOAkaze(object):
                 date_slave = np.array(date_slave)
                 self.yyyymmdd = np.median(date_slave)
                 # make a mosaic
-                mosaic = self.mosaicing(r,la,lo)
+                mosaic,self.lats_grid,self.lons_grid,self.maskslave = self.mosaicing(r,la,lo)
            
 
         elif self.typesat_slave == 2 or self.typesat_slave == 3: #landsat or MSI
@@ -253,14 +255,17 @@ class GEOAkaze(object):
                    lats.append(la)
                    lons.append(lo)
 
-               r = self.mosaicing(rad,lats,lons)  
+               r,lats,lons, _ = self.mosaicing(rad,lats,lons)
+               r = self.cutter(r,lats,lons)
+
             else:
                 fname = self.master_bundle
                 print(fname)
                 r,la,lo = self.read_rad(fname,self.typesat_master,self.bandindex_master,self.w3,self.w4)
                 if self.is_destriping: la = self.destriping(la)
                 # make a mosaic
-                r = self.mosaicing(r,la,lo)
+                r,lats,lons,_ = self.mosaicing(r,la,lo)
+                r = self.cutter(r,lats,lons)
 
         elif self.typesat_master == 2 or self.typesat_master == 4: #landsat
             r,la,lo = self.read_rad(self.master_bundle,self.typesat_master)
@@ -316,12 +321,12 @@ class GEOAkaze(object):
         lon = np.arange(min_lon,max_lon,self.gridsize)
         lat = np.arange(min_lat,max_lat,self.gridsize)
 
-        self.lons_grid,self.lats_grid = np.meshgrid(lon,lat)
+        lons_grid,lats_grid = np.meshgrid(lon,lat)
 
         check_list = isinstance(rads, list)
 
         if check_list:
-           full_moasic = np.zeros((np.shape(self.lons_grid)[0],np.shape(self.lons_grid)[1],len(rads)))
+           full_moasic = np.zeros((np.shape(lons_grid)[0],np.shape(lons_grid)[1],len(rads)))
         
            for i in range(len(rads)):
                points = np.zeros((np.size(lons[i]),2))
@@ -329,11 +334,11 @@ class GEOAkaze(object):
                points[:,1] = np.array(lats[i]).flatten()
                tri = Delaunay(points)
                interpolator = LinearNDInterpolator(tri,rads[i].flatten())
-               full_moasic[:,:,i] = interpolator(self.lons_grid, self.lats_grid)
+               full_moasic[:,:,i] = interpolator(lons_grid,lats_grid)
             # averaging
            full_moasic[full_moasic<=0] = np.nan
            mosaic = np.nanmean(full_moasic,axis=2)
-           self.maskslave = np.isnan(mosaic)
+           maskslave = np.isnan(mosaic)
 
         else:
             points = np.zeros((np.size(lons),2))
@@ -341,11 +346,11 @@ class GEOAkaze(object):
             points[:,1] = np.array(lats).flatten()
             tri = Delaunay(points)
             interpolator = LinearNDInterpolator(tri,rads.flatten())
-            mosaic = interpolator(self.lons_grid, self.lats_grid)
+            mosaic = interpolator(lons_grid, lats_grid)
             mosaic[mosaic<=0] = np.nan
-            self.maskslave = np.isnan(mosaic)
+            maskslave = np.isnan(mosaic)
 
-        return mosaic
+        return mosaic,lats_grid,lons_grid,maskslave
 
     def cutter(self,rad,lat,lon):
         '''
@@ -748,6 +753,10 @@ class GEOAkaze(object):
         urcrnrlon = max(lons_grid_corrected.flatten())
         urcrnrlat = max(lats_grid_corrected.flatten())
         
+        print(np.shape(lons_grid_corrected))
+        print(np.shape(lats_grid_corrected))
+        print(np.shape(self.slave))
+
         make_kmz(lons_grid_corrected,lats_grid_corrected,self.slave,fname)
     
     def savetotxt(self,fname):
