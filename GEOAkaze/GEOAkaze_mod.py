@@ -745,15 +745,7 @@ class GEOAkaze(object):
         else:
            lats_grid_corrected = self.lats_grid
            lons_grid_corrected = self.lons_grid
-
-        slaveimg = np.array(self.slave) 
-
-        llcrnrlon = min(lons_grid_corrected.flatten())
-        llcrnrlat = min(lats_grid_corrected.flatten())
-        urcrnrlon = max(lons_grid_corrected.flatten())
-        urcrnrlat = max(lats_grid_corrected.flatten())
     
-
         make_kmz(lons_grid_corrected,lats_grid_corrected,self.slave,fname)
     
     def savetotxt(self,fname):
