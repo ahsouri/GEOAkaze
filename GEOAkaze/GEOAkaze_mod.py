@@ -735,9 +735,6 @@ class GEOAkaze(object):
         '''
 
         from .make_kml import make_kmz
-        import matplotlib.pyplot as plt
-        import numpy as np
-        from scipy.interpolate import griddata
  
         if self.success == 1:
            lats_grid_corrected = (self.lats_grid-self.intercept_lat)/self.slope_lat
