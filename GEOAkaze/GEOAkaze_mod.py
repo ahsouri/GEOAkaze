@@ -227,8 +227,13 @@ class GEOAkaze(object):
            self.slave = np.uint8(self.slave*255)
         
         # we will need it to append master img to L1 file
-        self.slavelat = la
-        self.slavelon = lo
+        if self.is_slave_mosaic:
+           self.slavelat = lats[0]
+           self.slavelon = lons[0]
+        else:
+           self.slavelat = la
+           self.slavelon = lo
+           
         self.rawslave = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
 
     def readmaster(self): 
@@ -708,7 +713,7 @@ class GEOAkaze(object):
         import numpy as np
         from scipy.interpolate import griddata 
 
-        ncfile = Dataset(self.slave_bundle,'a',format="NETCDF4")
+        ncfile = Dataset(self.slave_bundle[0],'a',format="NETCDF4")
 
         try:
            ncgroup = ncfile.createGroup('SupportingData')
