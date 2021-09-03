@@ -10,6 +10,7 @@ class GEOAkaze(object):
     def __init__(self,slavefile,masterfile,gridsize,typesat_slave,typesat_master,dist_thr,
                    is_histeq=True,is_destriping=False,bandindex_slave=1,bandindex_master=None,
                    w1=None,w2=None,w3=None,w4=None):
+            
             import os.path
             import glob
             '''
@@ -171,8 +172,6 @@ class GEOAkaze(object):
         import numpy as np
         import cv2
 
-        
-        
 
         if self.typesat_slave == 0:
             # read the data
@@ -233,7 +232,7 @@ class GEOAkaze(object):
         else:
            self.slavelat = la
            self.slavelon = lo
-           
+
         self.rawslave = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
 
     def readmaster(self): 
@@ -713,7 +712,10 @@ class GEOAkaze(object):
         import numpy as np
         from scipy.interpolate import griddata 
 
-        ncfile = Dataset(self.slave_bundle[0],'a',format="NETCDF4")
+        if(isinstance(self.slave_bundle,list) == True):
+            ncfile = Dataset(self.slave_bundle[0],'a',format="NETCDF4")
+        else:
+            ncfile = Dataset(self.slave_bundle,'a',format="NETCDF4")
 
         try:
            ncgroup = ncfile.createGroup('SupportingData')
