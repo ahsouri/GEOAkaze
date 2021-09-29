@@ -156,8 +156,8 @@ class GEOAkaze(object):
               lat = self.read_group_nc(fname,1,'Geolocation','Latitude')[:]
               lon = self.read_group_nc(fname,1,'Geolocation','Longitude')[:]
            else:
-              lat = self.read_group_nc(fname,1,'Geolocation','AvionicsLatitude')[:]
-              lon = self.read_group_nc(fname,1,'Geolocation','AvionicsLongitude')[:]
+              lat = self.read_group_nc(fname,1,'SupportingData','AvionicsLatitude')[:]
+              lon = self.read_group_nc(fname,1,'SupportingData','AvionicsLongitude')[:]
 
            rad [rad <= 0] = np.nan
            if not (w1 is None): #w1 and w2 should be set or none of them
