@@ -598,11 +598,12 @@ class GEOAkaze(object):
                           (np.max(np.max(self.lons_grid)),np.max(np.max(self.lats_grid))), 
                           (np.min(np.min(self.lons_grid)),np.max(np.max(self.lats_grid))),
                           (np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid)))])
+
             dist_cent = (np.array(p_master.centroid.coords)) - (np.array(p_slave.centroid.coords))
             dist_cent = dist_cent**2
             dist_cent = np.sum(dist_cent)
             dist_cent = np.sqrt(dist_cent)
-            print(dist_cent)
+            
             if  (p_master.contains(p_slave)) and (dist_cent<0.45):
                     within_box.append(fname)
                     date_tmp = fname.split("_")
@@ -614,7 +615,10 @@ class GEOAkaze(object):
         if not msi_date:
             print('No MSI files being relevant to the targeted location/time were found, please fetch more MSI data')
             self.success = 0
-            exit()
+            msi_gray = self.slave * 0.0
+            lat_msi = self.lats_grid
+            lon_msi = self.lons_grid
+            return msi_gray,lat_msi,lon_msi
 
         dist_date = np.abs(np.array(msi_date) - float(self.yyyymmdd))
         index_chosen_one = np.argmin(dist_date)
