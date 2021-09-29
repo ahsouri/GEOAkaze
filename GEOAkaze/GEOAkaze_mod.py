@@ -273,7 +273,7 @@ class GEOAkaze(object):
 
                r,lats,lons, _ = self.mosaicing(rad,lats,lons)
                r = self.cutter(r,lats,lons)
-
+               self.rawmaster = r
             else:
                 fname = self.master_bundle
                 print(fname)
@@ -282,6 +282,7 @@ class GEOAkaze(object):
                 # make a mosaic
                 r,lats,lons,_ = self.mosaicing(r,la,lo)
                 r = self.cutter(r,lats,lons)
+                self.rawmaster = r
 
         elif self.typesat_master == 2 or self.typesat_master == 4: #landsat
             r,la,lo = self.read_rad(self.master_bundle,self.typesat_master)
@@ -292,8 +293,6 @@ class GEOAkaze(object):
             r = self.cutter(r,la,lo)
             self.rawmaster = r/10000.0
         
-         # reflectance
-
          # normalizing
         self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX) 
 
