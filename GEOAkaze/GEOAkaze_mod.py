@@ -145,8 +145,19 @@ class GEOAkaze(object):
         
         if typesat == 0 or typesat == 1:
            rad = self.read_group_nc(fname,1,'Band' + str(bandindex),'Radiance')[:]
-           lat = self.read_group_nc(fname,1,'Geolocation','Latitude')[:]
-           lon = self.read_group_nc(fname,1,'Geolocation','Longitude')[:]
+
+           # get flags used for labeling ortho settings
+           av_used = self.read_group_nc(fname,1,'SupportingData','AvionicsUsed')
+           ak_used= self.read_group_nc(fname,1,'SupportingData','AkazeUsed')
+           op_used = self.read_group_nc(fname,1,'SupportingData','OptimizedUsed')
+
+           if (op_used == 0 and ak_used == 0 and av_used == 1):
+              lat = self.read_group_nc(fname,1,'Geolocation','Latitude')[:]
+              lon = self.read_group_nc(fname,1,'Geolocation','Longitude')[:]
+           else:
+              lat = self.read_group_nc(fname,1,'Geolocation','AvionicsLatitude')[:]
+              lon = self.read_group_nc(fname,1,'Geolocation','AvionicsLongitude')[:]
+
            rad [rad <= 0] = np.nan
            if not (w1 is None): #w1 and w2 should be set or none of them
                rad = np.nanmean(rad[w1:w2,:,:],axis=0)
@@ -156,7 +167,7 @@ class GEOAkaze(object):
             rad = self.read_netcdf(fname,'Landsat')
             lat = self.read_netcdf(fname,'Lat')
             lon = self.read_netcdf(fname,'Lon')
-        elif self.typesat == 4:
+        elif typesat == 4:
             rad = self.read_netcdf(fname,'MSI_clim')
             lat = self.read_netcdf(fname,'lat')
             lon = self.read_netcdf(fname,'lon')
@@ -233,7 +244,8 @@ class GEOAkaze(object):
            self.slavelat = la
            self.slavelon = lo
 
-        self.rawslave = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
+        #self.rawslave = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
+        self.rawslave =  r
 
     def readmaster(self): 
         '''
@@ -243,8 +255,7 @@ class GEOAkaze(object):
         '''
         import numpy as np
         import cv2
-        
-        check_list = isinstance(self.master_bundle, list)
+
 
         if self.typesat_master == 0:
             if self.is_slave_mosaic:
@@ -274,11 +285,13 @@ class GEOAkaze(object):
         elif self.typesat_master == 2 or self.typesat_master == 4: #landsat
             r,la,lo = self.read_rad(self.master_bundle,self.typesat_master)
             r = self.cutter(r,la,lo)
+            self.rawmaster = r
         elif self.typesat_master == 3: #MSI jp2
             r,la,lo  = self.read_MSI(self.master_bundle)
             r = self.cutter(r,la,lo)
+            self.rawmaster = r/10000.0
         
-        self.rawmaster = r/10000.0 # reflectance
+         # reflectance
 
          # normalizing
         self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX) 
@@ -503,7 +516,8 @@ class GEOAkaze(object):
         # Fit line using all data
         from skimage.measure import LineModelND, ransac
         import numpy as np
-
+        import matplotlib.pyplot as plt
+        
         model = LineModelND()
         try:
            model.estimate(data)
@@ -584,8 +598,12 @@ class GEOAkaze(object):
                           (np.max(np.max(self.lons_grid)),np.max(np.max(self.lats_grid))), 
                           (np.min(np.min(self.lons_grid)),np.max(np.max(self.lats_grid))),
                           (np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid)))])
-            
-            if p_master.contains(p_slave):
+            dist_cent = (np.array(p_master.centroid.coords)) - (np.array(p_slave.centroid.coords))
+            dist_cent = dist_cent**2
+            dist_cent = np.sum(dist_cent)
+            dist_cent = np.sqrt(dist_cent)
+            print(dist_cent)
+            if  (p_master.contains(p_slave)) and (dist_cent<0.45):
                     within_box.append(fname)
                     date_tmp = fname.split("_")
                     date_tmp = date_tmp[-2]
@@ -612,7 +630,7 @@ class GEOAkaze(object):
         for i in range(np.shape(E_msi)[0]):
             for j in range(np.shape(E_msi)[1]):
                 temp = out_trans * (i,j)
-                E_msi[i,j] = temp[0]
+                E_msi[i,j] = temp[0] 
                 N_msi[i,j] = temp[1]
 
         E_msi = np.float32(E_msi)
@@ -744,6 +762,7 @@ class GEOAkaze(object):
         from .make_kml import make_kmz
  
         if self.success == 1:
+           print('hi')
            lats_grid_corrected = (self.lats_grid-self.intercept_lat)/self.slope_lat
            lons_grid_corrected = (self.lons_grid-self.intercept_lon)/self.slope_lon
         else:
@@ -777,6 +796,98 @@ class GEOAkaze(object):
            file1 = open(filename, "w")
            #file1.writelines(L1)
            file1.writelines(L2)
+
+    def hammer(self,slave_f,master_f1=None,master_f2=None,factor1=None,factor2=None):
+        ''' 
+        fixing the failed case (slave_f) using previous/next 
+        or both successful cases
+        ARGS:
+            fname (slave_f): slave file path
+            fname (master_f1): master file path (previous)
+            fname (master_f2): master file path (next)
+        '''
+        from scipy import stats
+        import numpy as np
+        import matplotlib.pyplot as plt
+
+        # read the slave and master
+        _ ,lat_sl,lon_sl = self.read_rad(slave_f,0,1)
+        if not (master_f1 is None):
+           master_rad_1,lat_m1,lo_m1 = self.read_rad(master_f1,0,1)
+           factors = np.loadtxt(factor1, delimiter=',')
+           print(factors)
+           print(np.shape(factors))
+           lat_m1 = (lat_m1 - factors[3])/factors[1]
+           lon_m1 = (lo_m1 - factors[2])/factors[0] 
+        if not (master_f2 is None):
+           master_rad_2,lat_m2,lo_m2 = self.read_rad(master_f2,0,1)
+           factors = np.loadtxt(factor2, delimiter=',')
+           lat_m2 = (lat_m1 - factors[3])/factors[1]
+           lon_m2 = (lon_m1 - factors[2])/factors[0] 
+
+        # master 1 is the previous so we stitch its forehead to 
+        # slave's backhead
+        #print(np.shape(master_rad_1))
+        #print(np.shape(slave_rad))
+        #plt.imshow(master_rad_1,aspect='auto')
+        #plt.show()
+        #plt.imshow(slave_rad,aspect='auto')
+        #plt.show()
+        #exit()
+
+        if ~(master_f1 is None) and ~(master_f2 is None): #only previous master is supplied
+            
+            #find the indices of non-nan gray scales
+            saw_first_nan = False
+            for i in range(0,np.shape(master_rad_1)[1]):
+                if ~np.isnan(master_rad_1[-1,i]):
+                    ind1 = i
+                    saw_first_nan = True
+                if (saw_first_nan) and np.isnan(master_rad_1[-1,i]):
+                    ind2 = i - 1    
+                
+            pts1_m1 = np.zeros((ind2-ind1+1,2))
+            pts2_m1 = np.zeros((ind2-ind1+1,2))
+
+            pts1_m1[:,0] = lon_m1[-1,ind1:ind2+1]
+            pts1_m1[:,1] = lat_m1[-1,ind1:ind2+1]
+            pts2_m1[:,0] = lon_sl[0,ind1:ind2+1]
+            pts2_m1[:,1] = lat_sl[0,ind1:ind2+1]
+
+                        #find the indices of non-nan gray scales
+            saw_first_nan = False
+            for i in range(0,np.shape(master_rad_2)[1]):
+                if ~np.isnan(master_rad_2[-1,i]):
+                    ind1 = i
+                    saw_first_nan = True
+                if (saw_first_nan) and np.isnan(master_rad_2[-1,i]):
+                    ind2 = i - 1
+                    
+                
+            pts1_m2 = np.zeros((ind2-ind1+1,2))
+            pts2_m2 = np.zeros((ind2-ind1+1,2))
+
+            pts1_m2[:,0] = lon_m2[0,ind1:ind2+1]
+            pts1_m2[:,1] = lat_m2[0,ind1:ind2+1]
+            pts2_m2[:,0] = lon_sl[-1,ind1:ind2+1]
+            pts2_m2[:,1] = lat_sl[-1,ind1:ind2+1]
+
+            data_master = np.concatenate([pts1_m1, pts1_m2])
+            print(np.shape(data_master))
+            data_slave = np.concatenate([pts2_m1, pts2_m2])
+            print(np.shape(data_slave))
+            self.slope_lat, self.intercept_lat, self.r_value1, \
+                 p_value, std_err = stats.linregress(data_master[:,1],
+                                                     data_slave[:,1])
+            self.slope_lon, self.intercept_lon, self.r_value2, \
+                 p_value, std_err = stats.linregress(data_master[:,0],
+                                                     data_slave[:,0])
+
+            self.success = 1
+        
+
+        
+
         
         
 
