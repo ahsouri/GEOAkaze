@@ -53,13 +53,14 @@ class GEOAkaze(object):
             # check if the masterfile is a folder or a file
 
             if os.path.isdir(os.path.abspath(masterfile[0])):
-                 # we need to make a mosaic
+                # we need to make a mosaic
                 self.is_master_mosaic = True
                 self.master_bundle = sorted(glob.glob(masterfile[0] + '/*'))
             else:
                 self.is_master_mosaic = False
                 self.master_bundle = []
                 if len(masterfile) > 1:
+                   self.is_master_mosaic = True
                    for fname in masterfile:
                        self.master_bundle.append(os.path.abspath(fname))  
                 else:   
