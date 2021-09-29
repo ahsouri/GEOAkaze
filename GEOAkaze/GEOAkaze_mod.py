@@ -258,7 +258,7 @@ class GEOAkaze(object):
 
 
         if self.typesat_master == 0:
-            if self.is_slave_mosaic:
+            if self.is_master_mosaic:
                rad  = []
                lats = []
                lons = []
