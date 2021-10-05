@@ -8,8 +8,8 @@
 class GEOAkaze(object):
 
     def __init__(self,slavefile,masterfile,gridsize,typesat_slave,typesat_master,dist_thr,
-                   is_histeq=True,is_destriping=False,bandindex_slave=1,bandindex_master=None,
-                   w1=None,w2=None,w3=None,w4=None):
+                   msi_clim_fld=None,is_histeq=True,is_destriping=False,bandindex_slave=1,
+                   bandindex_master=None,w1=None,w2=None,w3=None,w4=None):
             
             import os.path
             import glob
@@ -82,7 +82,8 @@ class GEOAkaze(object):
             self.slope_lat = 1.0
             self.intercept_lon = 0.0
             self.slope_lon = 1.0
-            self.success = 0          
+            self.success = 0
+            self.msi_clim_fld = msi_clim_fld        
 
     def read_netcdf(self,filename,var):
         ''' 
@@ -142,7 +143,6 @@ class GEOAkaze(object):
             radiance, latitude, longitude
         '''
         import numpy as np
-        import cv2
         
         if typesat == 0 or typesat == 1:
            rad = self.read_group_nc(fname,1,'Band' + str(bandindex),'Radiance')[:]
@@ -183,7 +183,6 @@ class GEOAkaze(object):
         '''
         import numpy as np
         import cv2
-
 
         if self.typesat_slave == 0:
             # read the data
@@ -245,7 +244,6 @@ class GEOAkaze(object):
            self.slavelat = la
            self.slavelon = lo
 
-        #self.rawslave = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
         self.rawslave =  r
 
     def readmaster(self): 
@@ -313,8 +311,7 @@ class GEOAkaze(object):
         OUT:
             mosaic, gridded_lat, gridded_lon
         ''' 
-        import numpy as np     
-        from scipy import interpolate   
+        import numpy as np      
         from scipy.spatial import Delaunay
         from scipy.interpolate import LinearNDInterpolator
 
@@ -614,10 +611,8 @@ class GEOAkaze(object):
         
         if not msi_date:
             print('No MSI files being relevant to the targeted location/time were found, please fetch more MSI data')
-            self.success = 0
-            msi_gray = self.slave * 0.0
-            lat_msi = self.lats_grid
-            lon_msi = self.lons_grid
+            print('trying the climatological files now!')
+            msi_gray,lat_msi,lon_msi = self.read_gee_tiff()
             return msi_gray,lat_msi,lon_msi
 
         dist_date = np.abs(np.array(msi_date) - float(self.yyyymmdd))
@@ -650,11 +645,82 @@ class GEOAkaze(object):
 
         return np.transpose(msi_gray),lat_msi,lon_msi
 
+    def read_gee_tiff(self):
+        '''
+        MSI reader
+        Default ARGS:
+           geefname (str): msi_clim_fld
+        OUT:
+           msi_gray (float, array): the grayscale image of MSI
+           lat_msi, lon_msi (floats): longitudes/latitudes of MSI
+        ''' 
+        # importing libraries
+        from numpy import dtype
+        import glob
+        import numpy as np
+        import rasterio
+        from rasterio.merge import merge
+        from shapely.geometry import Polygon
+
+        within_box = []
+        geefname = sorted(glob.glob(self.msi_clim_fld + '/*.tif'))
+
+        for fname in geefname:
+            try:
+                src = rasterio.open(fname)
+            except:
+                continue
+            out_trans = src.transform
+            # check the boundaries
+            width = src.width
+            height = src.height
+
+            corner1 =  out_trans * (0,0)     
+            corner4 =  out_trans * (width,height)
+
+            p_master = Polygon([(corner1[0],corner4[1]), (corner4[0],corner4[1]), (corner4[0],corner1[1]), 
+                             (corner1[0],corner1[1]), (corner1[0],corner4[1])])
+
+            p_slave = Polygon([(np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid))), 
+                          (np.max(np.max(self.lons_grid)),np.min(np.min(self.lats_grid))),
+                          (np.max(np.max(self.lons_grid)),np.max(np.max(self.lats_grid))), 
+                          (np.min(np.min(self.lons_grid)),np.max(np.max(self.lats_grid))),
+                          (np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid)))])
+            
+            if (p_master.contains(p_slave)): 
+                    within_box.append(fname)
+        
+        if not within_box:
+            print('The climatology MSI data do not cover this area')
+            self.success = 0
+            msi_gray = self.slave * 0.0
+            lat_msi = self.lats_grid
+            lon_msi = self.lons_grid
+            return msi_gray,lat_msi,lon_msi
+
+        # now read the most relevant picture
+        print('The chosen MSI is ' +  within_box[0])
+
+        src = rasterio.open(within_box[0])
+        out_trans = src.transform
+        msi_img = src.read(1)
+        lon_msi = np.zeros_like(msi_img)*np.nan
+        lat_msi = np.zeros_like(msi_img)*np.nan
+        for i in range(np.shape(lon_msi)[0]):
+            for j in range(np.shape(lon_msi)[1]):
+                temp = out_trans * (i,j)
+                lon_msi[i,j] = temp[0] 
+                lat_msi[i,j] = temp[1]
+ 
+        msi_gray = np.array(msi_img)
+        return msi_gray,lat_msi,lon_msi
+
+
     def write_to_nc(self,output_file):
         ''' 
-        Write the final results to a netcdf (presentation purpose)
+        Write the final results to a netcdf (for presentation purposes)
         ARGS:
-            output_file (char): the name of file for results to be outputted
+            output_file (char): the name of file to be outputted
         '''
         from netCDF4 import Dataset
         import numpy as np
@@ -691,7 +757,7 @@ class GEOAkaze(object):
 
     def destriping(self,lat):
         ''' 
-        in case of the presence of strips in latitute data, we can use this
+        in case of the presence of strips in latitude , we can use this
         method (sobel filter + 1D spline interpolation)
         ARGS:
             lat (array, float): latitude with strips
@@ -766,7 +832,6 @@ class GEOAkaze(object):
         from .make_kml import make_kmz
  
         if self.success == 1:
-           print('hi')
            lats_grid_corrected = (self.lats_grid-self.intercept_lat)/self.slope_lat
            lons_grid_corrected = (self.lons_grid-self.intercept_lon)/self.slope_lon
         else:
@@ -828,16 +893,6 @@ class GEOAkaze(object):
            factors = np.loadtxt(factor2, delimiter=',')
            lat_m2 = (lat_m1 - factors[3])/factors[1]
            lon_m2 = (lon_m1 - factors[2])/factors[0] 
-
-        # master 1 is the previous so we stitch its forehead to 
-        # slave's backhead
-        #print(np.shape(master_rad_1))
-        #print(np.shape(slave_rad))
-        #plt.imshow(master_rad_1,aspect='auto')
-        #plt.show()
-        #plt.imshow(slave_rad,aspect='auto')
-        #plt.show()
-        #exit()
 
         if ~(master_f1 is None) and ~(master_f2 is None): #only previous master is supplied
             
