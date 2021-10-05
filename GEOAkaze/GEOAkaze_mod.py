@@ -713,7 +713,7 @@ class GEOAkaze(object):
                 lat_msi[i,j] = temp[1]
  
         msi_gray = np.array(msi_img)
-        return np.transpose(msi_gray),lat_msi,lon_msi
+        return msi_gray,lat_msi,lon_msi
 
 
     def write_to_nc(self,output_file):
