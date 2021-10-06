@@ -582,9 +582,10 @@ class GEOAkaze(object):
             width = src.width
             height = src.height
 
+
             temp =  out_trans * (0,0)
             corner1 = np.array(utm.to_latlon(temp[0],temp[1],int(zones),'T'))
-            temp =  out_trans * (width,height)
+            temp =  out_trans * (height,width)
             corner4 = np.array(utm.to_latlon(temp[0],temp[1],int(zones),'T') )
 
             p_master = Polygon([(corner1[1],corner4[0]), (corner4[1],corner4[0]), (corner4[1],corner1[0]), 
@@ -601,7 +602,7 @@ class GEOAkaze(object):
             dist_cent = np.sum(dist_cent)
             dist_cent = np.sqrt(dist_cent)
             
-            if  (p_master.contains(p_slave) is not None) and (dist_cent<0.45):
+            if  (p_master.contains(p_slave)) and (dist_cent<0.45):
                     within_box.append(fname)
                     date_tmp = fname.split("_")
                     date_tmp = date_tmp[-2]
@@ -609,7 +610,7 @@ class GEOAkaze(object):
                     date_tmp = float(date_tmp[0])
                     msi_date.append(date_tmp)
         
-        if not msi_date:
+        if not within_box:
             print('No MSI files being relevant to the targeted location/time were found, please fetch more MSI data')
             print('trying the climatological files now!')
             msi_gray,lat_msi,lon_msi = self.read_gee_tiff()
@@ -679,7 +680,7 @@ class GEOAkaze(object):
             height = src.height
 
             corner1 =  out_trans * (0,0)     
-            corner4 =  out_trans * (width,height)
+            corner4 =  out_trans * (height,width)
 
             p_master = Polygon([(corner1[0],corner4[1]), (corner4[0],corner4[1]), (corner4[0],corner1[1]), 
                              (corner1[0],corner1[1]), (corner1[0],corner4[1])])
@@ -690,9 +691,9 @@ class GEOAkaze(object):
                           (np.min(np.min(self.lons_grid)),np.max(np.max(self.lats_grid))),
                           (np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid)))])
             
-            if (p_master.contains(p_slave) is not None):
+            if (p_master.contains(p_slave)):
                     within_box.append(fname)
-            elif (p_master.intersects(p_slave) is not None):
+            elif (p_master.intersects(p_slave)):
                     intersect_box.append(fname)
         
         if ((not within_box) and (not intersect_box)):
@@ -723,7 +724,7 @@ class GEOAkaze(object):
         height = src.height
 
         corner1 =  out_trans * (0,0)     
-        corner4 =  out_trans * (width,height)
+        corner4 =  out_trans * (height,width)
 
         lon_msi = np.linspace(corner1[0],corner4[0],src.width)
         lat_msi = np.linspace(corner4[1],corner1[1],src.height)
