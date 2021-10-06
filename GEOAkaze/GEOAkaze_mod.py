@@ -719,13 +719,15 @@ class GEOAkaze(object):
             out_trans = src.transform
             msi_img = src.read(1)
 
-        lon_msi = np.zeros_like(msi_img)*np.nan
-        lat_msi = np.zeros_like(msi_img)*np.nan
-        for i in range(np.shape(lon_msi)[0]):
-            for j in range(np.shape(lon_msi)[1]):
-                temp = out_trans * (j,i)
-                lon_msi[i,j] = temp[0] 
-                lat_msi[i,j] = temp[1]
+        width = src.width
+        height = src.height
+
+        corner1 =  out_trans * (0,0)     
+        corner4 =  out_trans * (width,height)
+
+        lon_msi = np.linspace(corner1[0],corner4[0],src.width)
+        lat_msi = np.linspace(corner4[1],corner1[1],src.height)
+        lon_msi , lat_msi = np.meshgrid(lon_msi,lat_msi)
 
         msi_gray = np.array(msi_img)
                 
