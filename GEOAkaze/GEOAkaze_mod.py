@@ -706,7 +706,7 @@ class GEOAkaze(object):
 
         # now read the most relevant picture
         # if there is no one single master to fully enclose the slave
-        if (not within_box and intersect_box):
+        if (not within_box) and (intersect_box):
             src_appended = []
             for int_box in range(len(intersect_box)):
                 src = rasterio.open(intersect_box[int_box])
@@ -720,16 +720,25 @@ class GEOAkaze(object):
             out_trans = src.transform
             msi_img = src.read(1)
 
-        width = src.width
-        height = src.height
+        #width = src.width
+        #height = src.height
 
-        corner1 =  out_trans * (0,0)     
-        corner4 =  out_trans * (height,width)
+        #corner1 =  out_trans * (0,0)     
+        #corner4 =  out_trans * (height,width)
 
-        lon_msi = np.linspace(corner1[0],corner4[0],src.width)
-        lat_msi = np.linspace(corner4[1],corner1[1],src.height)
-        lon_msi , lat_msi = np.meshgrid(lon_msi,lat_msi)
+        #lon_msi = np.linspace(corner1[0],corner4[0],src.width)
+        #lat_msi = np.linspace(corner4[1],corner1[1],src.height)
+        #lon_msi , lat_msi = np.meshgrid(lon_msi,lat_msi)
+        lat_msi = np.zeros_like(msi_img)*np.nan
+        lon_msi = np.zeros_like(msi_img)*np.nan
+        for i in range(np.shape(lon_msi)[0]):
+            for j in range(np.shape(lon_msi)[1]):
+                temp = out_trans * (i,j)
+                lon_msi[i,j] = temp[0] 
+                lat_msi[i,j] = temp[1]
 
+        lat_msi = np.float32(lat_msi)
+        lon_msi = np.float32(lon_msi)
         msi_gray = np.array(msi_img)
                 
         return msi_gray,lat_msi,lon_msi
