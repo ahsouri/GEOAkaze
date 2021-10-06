@@ -693,8 +693,8 @@ class GEOAkaze(object):
                     within_box.append(fname)
             elif (p_master.intersects(p_slave)):
                     intersect_box.append(fname)
-        
-        if not intersect_box:
+        print(intersect_box)
+        if ((not within_box) and (not intersect_box)):
             print('The climatology MSI data do not cover this area')
             self.success = 0
             msi_gray = self.slave * 0.0
