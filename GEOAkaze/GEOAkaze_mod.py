@@ -661,8 +661,10 @@ class GEOAkaze(object):
         import rasterio
         from rasterio.merge import merge
         from shapely.geometry import Polygon
-
+        import matplotlib.pyplot as plt
+        
         within_box = []
+        intersect_box = []
         geefname = sorted(glob.glob(self.msi_clim_fld + '/*.tif'))
 
         for fname in geefname:
@@ -687,10 +689,12 @@ class GEOAkaze(object):
                           (np.min(np.min(self.lons_grid)),np.max(np.max(self.lats_grid))),
                           (np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid)))])
             
-            if (p_master.contains(p_slave)): 
+            if (p_master.contains(p_slave)):
                     within_box.append(fname)
+            elif (p_master.intersects(p_slave)):
+                    intersect_box.append(fname)
         
-        if not within_box:
+        if not intersect_box:
             print('The climatology MSI data do not cover this area')
             self.success = 0
             msi_gray = self.slave * 0.0
@@ -699,11 +703,21 @@ class GEOAkaze(object):
             return msi_gray,lat_msi,lon_msi
 
         # now read the most relevant picture
-        print('The chosen MSI is ' +  within_box[0])
+        # if there is no one single master to fully enclose the slave
+        if (not within_box and intersect_box):
+            src_appended = []
+            for int_box in range(len(intersect_box)):
+                src = rasterio.open(intersect_box[int_box])
+                src_appended.append(src)
+            msi_img, out_trans = rasterio.merge(src_appended)
+            print('Two tiles are chosen from the clim ' +  intersect_box)
+        # if there is at least one master to fully enclose the slave
+        elif within_box:           
+            print('The chosen clim MSI is ' +  within_box[0])
+            src = rasterio.open(within_box[0])
+            out_trans = src.transform
+            msi_img = src.read(1)
 
-        src = rasterio.open(within_box[0])
-        out_trans = src.transform
-        msi_img = src.read(1)
         lon_msi = np.zeros_like(msi_img)*np.nan
         lat_msi = np.zeros_like(msi_img)*np.nan
         for i in range(np.shape(lon_msi)[0]):
@@ -711,9 +725,10 @@ class GEOAkaze(object):
                 temp = out_trans * (i,j)
                 lon_msi[i,j] = temp[0] 
                 lat_msi[i,j] = temp[1]
- 
+
         msi_gray = np.array(msi_img)
-        return np.transpose(msi_gray),lat_msi,lon_msi
+                
+        return msi_gray,lat_msi,lon_msi
 
 
     def write_to_nc(self,output_file):
