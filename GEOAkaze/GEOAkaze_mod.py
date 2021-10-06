@@ -727,10 +727,7 @@ class GEOAkaze(object):
                 lat_msi[i,j] = temp[1]
 
         msi_gray = np.array(msi_img)
-<<<<<<< HEAD
                 
-=======
->>>>>>> 69229e8c333da82a6bf69ca80b27d9ae626540fd
         return msi_gray,lat_msi,lon_msi
 
 
