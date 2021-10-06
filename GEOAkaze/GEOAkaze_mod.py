@@ -601,7 +601,7 @@ class GEOAkaze(object):
             dist_cent = np.sum(dist_cent)
             dist_cent = np.sqrt(dist_cent)
             
-            if  (p_master.contains(p_slave)) and (dist_cent<0.45):
+            if  (p_master.contains(p_slave) is not None) and (dist_cent<0.45):
                     within_box.append(fname)
                     date_tmp = fname.split("_")
                     date_tmp = date_tmp[-2]
@@ -668,6 +668,7 @@ class GEOAkaze(object):
         geefname = sorted(glob.glob(self.msi_clim_fld + '/*.tif'))
 
         for fname in geefname:
+
             try:
                 src = rasterio.open(fname)
             except:
@@ -689,11 +690,11 @@ class GEOAkaze(object):
                           (np.min(np.min(self.lons_grid)),np.max(np.max(self.lats_grid))),
                           (np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid)))])
             
-            if (p_master.contains(p_slave)):
+            if (p_master.contains(p_slave) is not None):
                     within_box.append(fname)
-            elif (p_master.intersects(p_slave)):
+            elif (p_master.intersects(p_slave) is not None):
                     intersect_box.append(fname)
-        print(intersect_box)
+        
         if ((not within_box) and (not intersect_box)):
             print('The climatology MSI data do not cover this area')
             self.success = 0
@@ -722,7 +723,7 @@ class GEOAkaze(object):
         lat_msi = np.zeros_like(msi_img)*np.nan
         for i in range(np.shape(lon_msi)[0]):
             for j in range(np.shape(lon_msi)[1]):
-                temp = out_trans * (i,j)
+                temp = out_trans * (j,i)
                 lon_msi[i,j] = temp[0] 
                 lat_msi[i,j] = temp[1]
 
