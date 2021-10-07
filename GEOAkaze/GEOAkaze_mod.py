@@ -26,7 +26,7 @@ class GEOAkaze(object):
                       2: Landsat(nc)
                       3: MSI(jp2)
                       4: MSI(nc)
-                      5: Landsat (nc) (old version)
+
                 dist_thr (int): a threshold used for filtering bad matches
                 is_destriping (bool): whether to remove strips 
                 bandindex_slave and bandindex_master (int): the index for reading bands in 
@@ -138,7 +138,7 @@ class GEOAkaze(object):
                       2: Landsat(nc)
                       3: MSI(jp2)
                       4: MSI(nc)
-                      5: Landsat (nc) (old version)
+
             bandindex (int): the index of band (e.g., =1 for O2)
             w1,w2 (int): the range of wavelength indices for averaging
         OUT:
@@ -174,10 +174,7 @@ class GEOAkaze(object):
             rad = self.read_netcdf(fname,'MSI_clim')
             lat = self.read_netcdf(fname,'lat')
             lon = self.read_netcdf(fname,'lon')
-        elif typesat == 4:
-            rad = self.read_netcdf(fname,'landsat_gray')
-            lat = self.read_netcdf(fname,'lat_landsat')
-            lon = self.read_netcdf(fname,'lon_landsat')           
+         
         return rad,lat,lon
 
     def readslave(self):
