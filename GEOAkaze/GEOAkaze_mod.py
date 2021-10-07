@@ -677,7 +677,7 @@ class GEOAkaze(object):
         for fname in geefname:
 
             try:
-                src = rasterio.open(fname)
+                src = rasterio.open(fname,crs='EPSG:3857')
             except:
                 continue
             out_trans = src.transform
@@ -715,14 +715,14 @@ class GEOAkaze(object):
         if (not within_box) and (intersect_box):
             src_appended = []
             for int_box in range(len(intersect_box)):
-                src = rasterio.open(intersect_box[int_box])
+                src = rasterio.open(intersect_box[int_box],crs='EPSG:3857')
                 src_appended.append(src)
             msi_img, out_trans = rasterio.merge(src_appended)
             print('Two tiles are chosen from the clim ' +  intersect_box)
         # if there is at least one master to fully enclose the slave
         elif within_box:           
             print('The chosen clim MSI is ' +  within_box[0])
-            src = rasterio.open(within_box[0])
+            src = rasterio.open(within_box[0],crs='EPSG:3857')
             out_trans = src.transform
             msi_img = src.read(1)
 
