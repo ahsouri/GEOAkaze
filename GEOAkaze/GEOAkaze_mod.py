@@ -674,7 +674,7 @@ class GEOAkaze(object):
                 src = rasterio.open(fname)
             except:
                 continue
-            out_trans = src.transform.from_origin
+            out_trans = src.transform
             # check the boundaries
             width = src.width
             height = src.height
@@ -717,7 +717,7 @@ class GEOAkaze(object):
         elif within_box:           
             print('The chosen clim MSI is ' +  within_box[0])
             src = rasterio.open(within_box[0])
-            out_trans = src.transform.from_origin
+            out_trans = src.transform
             msi_img = src.read(1)
 
         lat_msi = np.zeros_like(msi_img)*np.nan
