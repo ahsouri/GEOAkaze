@@ -574,6 +574,7 @@ class GEOAkaze(object):
         import numpy as np
         import rasterio
         import utm
+        import os
         from rasterio.merge import merge
         from shapely.geometry import Polygon
 
@@ -607,8 +608,9 @@ class GEOAkaze(object):
             dist_cent = dist_cent**2
             dist_cent = np.sum(dist_cent)
             dist_cent = np.sqrt(dist_cent)
-            
-            if  (p_master.contains(p_slave)) and (dist_cent<0.45):
+            file_size = os.path.getsize(fname)
+
+            if  (p_master.contains(p_slave)) and (dist_cent<0.45) and file_size>15096676:
                     within_box.append(fname)
                     date_tmp = fname.split("_")
                     date_tmp = date_tmp[-2]
