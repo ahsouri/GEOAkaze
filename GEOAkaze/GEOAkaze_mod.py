@@ -604,13 +604,15 @@ class GEOAkaze(object):
                           (np.min(np.min(self.lons_grid)),np.max(np.max(self.lats_grid))),
                           (np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid)))])
 
-            dist_cent = (np.array(p_master.centroid.coords)) - (np.array(p_slave.centroid.coords))
-            dist_cent = dist_cent**2
-            dist_cent = np.sum(dist_cent)
-            dist_cent = np.sqrt(dist_cent)
+            #dist_cent = (np.array(p_master.centroid.coords)) - (np.array(p_slave.centroid.coords))
+            #dist_cent = dist_cent**2
+            #dist_cent = np.sum(dist_cent)
+            #dist_cent = np.sqrt(dist_cent)
             file_size = os.path.getsize(fname)
-
-            if  (p_master.contains(p_slave)) and (dist_cent<0.45) and file_size>15096676:
+            #print(file_size)
+            #print(dist_cent)
+            #print(p_master.contains(p_slave))
+            if  (p_master.contains(p_slave)) and file_size>15096676:
                     within_box.append(fname)
                     date_tmp = fname.split("_")
                     date_tmp = date_tmp[-2]
@@ -620,8 +622,16 @@ class GEOAkaze(object):
         
         if not within_box:
             print('No MSI files being relevant to the targeted location/time were found, please fetch more MSI data')
-            print('trying the climatological files now!')
-            msi_gray,lat_msi,lon_msi = self.read_gee_tiff()
+            if (self.msi_clim_fld is not None):
+                print('trying the climatological files now!')
+                msi_gray,lat_msi,lon_msi = self.read_gee_tiff()
+            else:
+                print('The clim is not set, returning zero images')
+                self.success = 0
+                msi_gray = self.slave * 0.0
+                lat_msi = self.lats_grid
+                lon_msi = self.lons_grid
+            
             return msi_gray,lat_msi,lon_msi
 
         dist_date = np.abs(np.array(msi_date) - float(self.yyyymmdd))
