@@ -662,7 +662,7 @@ class GEOAkaze(object):
                src = rasterio.open(intersect_box[index_chosen_one[index_bundle]],driver='JP2OpenJPEG')
                src_appended.append(src)
                zones_appended.append(int(str(src.crs)[-2::]))
-           msi_img, out_trans = rasterio.merge(src_appended)
+           msi_img, out_trans = merge(src_appended)
            print('Several tiles are chosen from the jp2 pool ' +  intersect_box)
            zones = np.floor(np.mean(zones_appended))
 
@@ -753,7 +753,7 @@ class GEOAkaze(object):
             for int_box in range(len(intersect_box)):
                 src = rasterio.open(intersect_box[int_box],crs='EPSG:3857')
                 src_appended.append(src)
-            msi_img, out_trans = rasterio.merge(src_appended)
+            msi_img, out_trans = merge(src_appended)
             print('Two tiles are chosen from the clim ' +  intersect_box)
         # if there is at least one master to fully enclose the slave
         elif within_box:           
