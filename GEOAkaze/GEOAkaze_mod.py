@@ -290,7 +290,7 @@ class GEOAkaze(object):
             self.rawmaster = r
         elif self.typesat_master == 3: #MSI jp2
             rs,las,los = self.read_MSI(self.master_bundle)
-            for msi_ind in range(len(r)):
+            for msi_ind in range(len(rs)):
                 r = self.cutter(rs[msi_ind],las[msi_ind],los[msi_ind])
                 if msi_ind == 0:
                    final_msi = np.zeros_like(r)
@@ -636,14 +636,17 @@ class GEOAkaze(object):
         
         if intersect_box:
            dist_date = np.abs(np.array(msi_date_intsec) - float(self.yyyymmdd))
-           index_chosen_unsorted = np.where(dist_date<30)[0]
-           index_chosen_sorted = np.zeros(30)
-           dist_date_sorted = sorted(dist_date[index_chosen_unsorted])
-           dist_date_unsorted = dist_date[index_chosen_unsorted]
+           dist_date_sorted = sorted(dist_date)
+           counter = 0
+           index_chosen_sorted = []
            for i in range(np.size(dist_date_sorted)):
-               j = np.where(dist_date_unsorted == dist_date_sorted[i])[0]
-               index_chosen_sorted[i] = index_chosen_unsorted[j]
-
+               j = np.where(dist_date == dist_date_sorted[i])[0]
+               for p in range(np.size(j)):
+                   if counter>30:
+                       break
+                   index_chosen_sorted.append(j[p])
+                   counter = counter + 1
+                   
            msi_grays = []
            lat_msis = []
            lon_msis = []
