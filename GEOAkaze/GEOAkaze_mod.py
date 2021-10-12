@@ -290,8 +290,15 @@ class GEOAkaze(object):
             self.rawmaster = r
         elif self.typesat_master == 3: #MSI jp2
             r,la,lo  = self.read_MSI(self.master_bundle)
-            r = self.cutter(r,la,lo)
-            self.rawmaster = r/10000.0
+            
+            for msi_ind in range(len(r)):
+                r = self.cutter(r[msi_ind],la[msi_ind],lo[msi_ind])
+                if msi_ind == 0:
+                   final_msi = np.zeros_like(r)
+                r[final_msi != 0.0] = 0.0
+                final_msi = final_msi + r
+            self.rawmaster = final_msi/10000.0
+            r = final_msi
         elif self.typesat_master == 5:
             r,la,lo  = self.read_rad(self.master_bundle,self.typesat_master)
             r = self.cutter(r,la,lo)
@@ -578,8 +585,6 @@ class GEOAkaze(object):
         from rasterio.merge import merge
         from shapely.geometry import Polygon
 
-        within_box = []
-        msi_date_within = []
         intersect_box = []
         msi_date_intsec = []
 
@@ -606,21 +611,8 @@ class GEOAkaze(object):
                           (np.min(np.min(self.lons_grid)),np.max(np.max(self.lats_grid))),
                           (np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid)))])
 
-            #dist_cent = (np.array(p_master.centroid.coords)) - (np.array(p_slave.centroid.coords))
-            #dist_cent = dist_cent**2
-            #dist_cent = np.sum(dist_cent)
-            #dist_cent = np.sqrt(dist_cent)
             file_size = os.path.getsize(fname)
-            #print(file_size)
-            #print(dist_cent)
-            #print(p_master.contains(p_slave))
-            if  (p_master.contains(p_slave)) and file_size>15096676:
-                    within_box.append(fname)
-                    date_tmp = fname.split("_")
-                    date_tmp = date_tmp[-2]
-                    date_tmp = date_tmp.split("T")
-                    date_tmp = float(date_tmp[0])
-                    msi_date_within.append(date_tmp)
+ 
             if  (p_master.intersects(p_slave)) and file_size>15096676:
                     intersect_box.append(fname)
                     date_tmp = fname.split("_")
@@ -629,7 +621,7 @@ class GEOAkaze(object):
                     date_tmp = float(date_tmp[0])
                     msi_date_intsec.append(date_tmp)            
         
-        if (not within_box) and (not intersect_box):
+        if (not intersect_box):
             print('No MSI files being relevant to the targeted location/time were found, please fetch more MSI data')
             if (self.msi_clim_fld is not None):
                 print('trying the climatological files now!')
@@ -643,11 +635,11 @@ class GEOAkaze(object):
             
             return msi_gray,lat_msi,lon_msi
         
-        if within_box:
+        if intersect_box:
            dist_date = np.abs(np.array(msi_date_within) - float(self.yyyymmdd))
            index_chosen_one = np.argmin(dist_date)
            # now read the most relevant picture
-           print('The chosen MSI is ' +  within_box[index_chosen_one])
+
            src = rasterio.open(within_box[index_chosen_one],driver='JP2OpenJPEG')
            zones = (int(str(src.crs)[-2::]))
            out_trans = src.transform
@@ -655,38 +647,41 @@ class GEOAkaze(object):
            
         if intersect_box:
            dist_date = np.abs(np.array(msi_date_intsec) - float(self.yyyymmdd))
-           index_chosen_one = np.where(dist_date<30)[0]
-           src_appended = []
-           zones_appended = []
+           index_chosen_one = np.where(dist_date<15)[0]
+           msi_grays = []
+           lat_msis = []
+           lon_msis = []
            for index_bundle in range(len(index_chosen_one)):
                src = rasterio.open(intersect_box[index_chosen_one[index_bundle]],driver='JP2OpenJPEG')
-               src_appended.append(src)
-               zones_appended.append(int(str(src.crs)[-2::]))
-           msi_img, out_trans = merge(src_appended)
-           print('Several tiles are chosen from the jp2 pool ' +  intersect_box)
-           zones = np.floor(np.mean(zones_appended))
-
+               zones = (int(str(src.crs)[-2::]))
+               out_trans = src.transform
+               msi_img = src.read(1)
+               print('The chosen MSI is/are ' +  intersect_box[index_chosen_one[index_bundle]])
         
-        E_msi = np.zeros_like(msi_img)*np.nan
-        N_msi = np.zeros_like(msi_img)*np.nan
-        for i in range(np.shape(E_msi)[0]):
-            for j in range(np.shape(E_msi)[1]):
-                temp = out_trans * (i,j)
-                E_msi[i,j] = temp[0] 
-                N_msi[i,j] = temp[1]
+               E_msi = np.zeros_like(msi_img)*np.nan
+               N_msi = np.zeros_like(msi_img)*np.nan
+               for i in range(np.shape(E_msi)[0]):
+                   for j in range(np.shape(E_msi)[1]):
+                       temp = out_trans * (i,j)
+                       E_msi[i,j] = temp[0] 
+                       N_msi[i,j] = temp[1]
 
-        E_msi = np.float32(E_msi)
-        N_msi = np.float32(N_msi)
+               E_msi = np.float32(E_msi)
+               N_msi = np.float32(N_msi)
 
-        temp = np.array(utm.to_latlon(E_msi.flatten(),N_msi.flatten(),int(zones),'T'))
-        temp2 = np.reshape(temp,(2,np.shape(msi_img)[0],np.shape(msi_img)[1]))
+               temp = np.array(utm.to_latlon(E_msi.flatten(),N_msi.flatten(),int(zones),'T'))
+               temp2 = np.reshape(temp,(2,np.shape(msi_img)[0],np.shape(msi_img)[1]))
 
-        lat_msi = np.squeeze(temp2[0,:,:])
-        lon_msi = np.squeeze(temp2[1,:,:])
+               lat_msi = np.squeeze(temp2[0,:,:])
+               lon_msi = np.squeeze(temp2[1,:,:])
 
-        msi_gray = np.array(msi_img, dtype='uint16').astype('float32')
+               msi_gray = np.array(msi_img, dtype='uint16').astype('float32')
 
-        return np.transpose(msi_gray),lat_msi,lon_msi
+               msi_grays.append(np.transpose(msi_gray))
+               lat_msis.append(lat_msi)
+               lon_msis.append(lon_msi)
+
+        return msi_grays,lat_msis,lon_msis
 
     def read_gee_tiff(self):
         '''
@@ -754,7 +749,7 @@ class GEOAkaze(object):
                 src = rasterio.open(intersect_box[int_box],crs='EPSG:3857')
                 src_appended.append(src)
             msi_img, out_trans = merge(src_appended)
-            print('Two tiles are chosen from the clim ' +  intersect_box)
+            print('Several tiles are chosen from the clim')
         # if there is at least one master to fully enclose the slave
         elif within_box:           
             print('The chosen clim MSI is ' +  within_box[0])
