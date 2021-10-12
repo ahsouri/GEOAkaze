@@ -662,9 +662,10 @@ class GEOAkaze(object):
                src_appended.append(src)
                zones_appended.append(int(str(src.crs)[-2::]))
                msi_img, out_trans = rasterio.merge(src_appended)
-               print('Several tiles are chosen from the jp2 pool ' +  intersect_box)
+           print('Several tiles are chosen from the jp2 pool ' +  intersect_box)
+           zones = np.floor(np.mean(zones_appended))
 
-        zones = np.floor(np.mean(zones_appended))
+        
         E_msi = np.zeros_like(msi_img)*np.nan
         N_msi = np.zeros_like(msi_img)*np.nan
         for i in range(np.shape(E_msi)[0]):
