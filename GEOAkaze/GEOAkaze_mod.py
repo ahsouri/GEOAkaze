@@ -289,10 +289,9 @@ class GEOAkaze(object):
             r = self.cutter(r,la,lo)
             self.rawmaster = r
         elif self.typesat_master == 3: #MSI jp2
-            r,la,lo  = self.read_MSI(self.master_bundle)
-            
+            rs,las,los = self.read_MSI(self.master_bundle)
             for msi_ind in range(len(r)):
-                r = self.cutter(r[msi_ind],la[msi_ind],lo[msi_ind])
+                r = self.cutter(rs[msi_ind],las[msi_ind],los[msi_ind])
                 if msi_ind == 0:
                    final_msi = np.zeros_like(r)
                 r[final_msi != 0.0] = 0.0
@@ -637,16 +636,22 @@ class GEOAkaze(object):
         
         if intersect_box:
            dist_date = np.abs(np.array(msi_date_intsec) - float(self.yyyymmdd))
-           index_chosen_one = np.where(dist_date<15)[0]
+           index_chosen_unsorted = np.where(dist_date<30)[0]
+           index_chosen_sorted = np.zeros(30)
+           dist_date_sorted = sorted(dist_date)
+           for i in range(np.size(dist_date_sorted)):
+               j = np.where(dist_date == dist_date_sorted[i])[0]
+               index_chosen_sorted[i] = index_chosen_unsorted[j]
+
            msi_grays = []
            lat_msis = []
            lon_msis = []
-           for index_bundle in range(len(index_chosen_one)):
-               src = rasterio.open(intersect_box[index_chosen_one[index_bundle]],driver='JP2OpenJPEG')
+           for index_bundle in range(len(index_chosen_sorted)):
+               src = rasterio.open(intersect_box[index_chosen_sorted[index_bundle]],driver='JP2OpenJPEG')
                zones = (int(str(src.crs)[-2::]))
                out_trans = src.transform
                msi_img = src.read(1)
-               print('The chosen MSI is/are ' +  intersect_box[index_chosen_one[index_bundle]])
+               print('The chosen MSI is/are ' +  intersect_box[index_chosen_sorted[index_bundle]])
         
                E_msi = np.zeros_like(msi_img)*np.nan
                N_msi = np.zeros_like(msi_img)*np.nan
