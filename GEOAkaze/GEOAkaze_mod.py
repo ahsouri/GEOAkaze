@@ -642,6 +642,7 @@ class GEOAkaze(object):
                 lon_msi = self.lons_grid
             
             return msi_gray,lat_msi,lon_msi
+        
         if within_box:
            dist_date = np.abs(np.array(msi_date_within) - float(self.yyyymmdd))
            index_chosen_one = np.argmin(dist_date)
@@ -653,15 +654,15 @@ class GEOAkaze(object):
            msi_img = src.read(1)
            
         if intersect_box:
-           dist_date = np.abs(np.array(msi_date_within) - float(self.yyyymmdd))
-           index_chosen_one = np.where(dist_date<100)
+           dist_date = np.abs(np.array(msi_date_intsec) - float(self.yyyymmdd))
+           index_chosen_one = np.where(dist_date<30)[0]
            src_appended = []
            zones_appended = []
            for index_bundle in range(len(index_chosen_one)):
-               src = rasterio.open(intersect_box[index_chosen_one[index_bundle]])
+               src = rasterio.open(intersect_box[index_chosen_one[index_bundle]],driver='JP2OpenJPEG')
                src_appended.append(src)
                zones_appended.append(int(str(src.crs)[-2::]))
-               msi_img, out_trans = rasterio.merge(src_appended)
+           msi_img, out_trans = rasterio.merge(src_appended)
            print('Several tiles are chosen from the jp2 pool ' +  intersect_box)
            zones = np.floor(np.mean(zones_appended))
 
@@ -670,7 +671,7 @@ class GEOAkaze(object):
         N_msi = np.zeros_like(msi_img)*np.nan
         for i in range(np.shape(E_msi)[0]):
             for j in range(np.shape(E_msi)[1]):
-                temp = out_trans * (j,i)
+                temp = out_trans * (i,j)
                 E_msi[i,j] = temp[0] 
                 N_msi[i,j] = temp[1]
 
