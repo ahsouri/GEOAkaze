@@ -579,7 +579,9 @@ class GEOAkaze(object):
         from shapely.geometry import Polygon
 
         within_box = []
-        msi_date = []
+        msi_date_within = []
+        intersect_box = []
+        msi_date_intsec = []
 
         for fname in msifname:
             src = rasterio.open(fname,driver='JP2OpenJPEG')
@@ -618,9 +620,16 @@ class GEOAkaze(object):
                     date_tmp = date_tmp[-2]
                     date_tmp = date_tmp.split("T")
                     date_tmp = float(date_tmp[0])
-                    msi_date.append(date_tmp)
+                    msi_date_within.append(date_tmp)
+            if  (p_master.intersects(p_slave)) and file_size>15096676:
+                    intersect_box.append(fname)
+                    date_tmp = fname.split("_")
+                    date_tmp = date_tmp[-2]
+                    date_tmp = date_tmp.split("T")
+                    date_tmp = float(date_tmp[0])
+                    msi_date_intsec.append(date_tmp)            
         
-        if not within_box:
+        if (not within_box) and (not intersect_box):
             print('No MSI files being relevant to the targeted location/time were found, please fetch more MSI data')
             if (self.msi_clim_fld is not None):
                 print('trying the climatological files now!')
@@ -633,21 +642,34 @@ class GEOAkaze(object):
                 lon_msi = self.lons_grid
             
             return msi_gray,lat_msi,lon_msi
+        if within_box:
+           dist_date = np.abs(np.array(msi_date_within) - float(self.yyyymmdd))
+           index_chosen_one = np.argmin(dist_date)
+           # now read the most relevant picture
+           print('The chosen MSI is ' +  within_box[index_chosen_one])
+           src = rasterio.open(within_box[index_chosen_one],driver='JP2OpenJPEG')
+           zones = (int(str(src.crs)[-2::]))
+           out_trans = src.transform
+           msi_img = src.read(1)
+           
+        if intersect_box:
+           dist_date = np.abs(np.array(msi_date_within) - float(self.yyyymmdd))
+           index_chosen_one = np.where(dist_date<100)
+           src_appended = []
+           zones_appended = []
+           for index_bundle in range(len(index_chosen_one)):
+               src = rasterio.open(intersect_box[index_chosen_one[index_bundle]])
+               src_appended.append(src)
+               zones_appended.append(int(str(src.crs)[-2::]))
+               msi_img, out_trans = rasterio.merge(src_appended)
+               print('Several tiles are chosen from the jp2 pool ' +  intersect_box)
 
-        dist_date = np.abs(np.array(msi_date) - float(self.yyyymmdd))
-        index_chosen_one = np.argmin(dist_date)
-        # now read the most relevant picture
-        print('The chosen MSI is ' +  within_box[index_chosen_one])
-
-        src = rasterio.open(within_box[index_chosen_one],driver='JP2OpenJPEG')
-        zones = (int(str(src.crs)[-2::]))
-        out_trans = src.transform
-        msi_img = src.read(1)
+        zones = np.floor(np.mean(zones_appended))
         E_msi = np.zeros_like(msi_img)*np.nan
         N_msi = np.zeros_like(msi_img)*np.nan
         for i in range(np.shape(E_msi)[0]):
             for j in range(np.shape(E_msi)[1]):
-                temp = out_trans * (i,j)
+                temp = out_trans * (j,i)
                 E_msi[i,j] = temp[0] 
                 N_msi[i,j] = temp[1]
 
