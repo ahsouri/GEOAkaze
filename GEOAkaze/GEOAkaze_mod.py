@@ -636,16 +636,6 @@ class GEOAkaze(object):
             return msi_gray,lat_msi,lon_msi
         
         if intersect_box:
-           dist_date = np.abs(np.array(msi_date_within) - float(self.yyyymmdd))
-           index_chosen_one = np.argmin(dist_date)
-           # now read the most relevant picture
-
-           src = rasterio.open(within_box[index_chosen_one],driver='JP2OpenJPEG')
-           zones = (int(str(src.crs)[-2::]))
-           out_trans = src.transform
-           msi_img = src.read(1)
-           
-        if intersect_box:
            dist_date = np.abs(np.array(msi_date_intsec) - float(self.yyyymmdd))
            index_chosen_one = np.where(dist_date<15)[0]
            msi_grays = []
