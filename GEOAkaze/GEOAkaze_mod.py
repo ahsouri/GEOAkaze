@@ -638,9 +638,10 @@ class GEOAkaze(object):
            dist_date = np.abs(np.array(msi_date_intsec) - float(self.yyyymmdd))
            index_chosen_unsorted = np.where(dist_date<30)[0]
            index_chosen_sorted = np.zeros(30)
-           dist_date_sorted = sorted(dist_date)
+           dist_date_sorted = sorted(dist_date[index_chosen_unsorted])
+           dist_date_unsorted = dist_date[index_chosen_unsorted]
            for i in range(np.size(dist_date_sorted)):
-               j = np.where(dist_date == dist_date_sorted[i])[0]
+               j = np.where(dist_date_unsorted == dist_date_sorted[i])[0]
                index_chosen_sorted[i] = index_chosen_unsorted[j]
 
            msi_grays = []
