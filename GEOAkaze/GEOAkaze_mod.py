@@ -535,7 +535,7 @@ class GEOAkaze(object):
            self.success = 0
         # Robustly fit linear model with RANSAC algorithm
         try:
-            model_robust, inliers = ransac(data, LineModelND, min_samples=10, residual_threshold=0.0005,
+            model_robust, inliers = ransac(data, LineModelND, min_samples=5, residual_threshold=0.0005,
                                     max_trials=100000)
         except:
             print('ransac cannot find outliers, failed!')
@@ -581,7 +581,6 @@ class GEOAkaze(object):
         import rasterio
         import utm
         import os
-        from rasterio.merge import merge
         from shapely.geometry import Polygon
 
         intersect_box = []
@@ -642,7 +641,7 @@ class GEOAkaze(object):
            for i in range(np.size(dist_date_sorted)):
                j = np.where(dist_date == dist_date_sorted[i])[0]
                for p in range(np.size(j)):
-                   if counter>30:
+                   if counter>10:
                        break
                    index_chosen_sorted.append(j[p])
                    counter = counter + 1
