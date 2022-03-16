@@ -8,7 +8,7 @@
 class GEOAkaze(object):
 
     def __init__(self,slavefile,masterfile,gridsize,typesat_slave,typesat_master,dist_thr,
-                   msi_clim_fld=None,is_histeq=True,is_destriping=False,bandindex_slave=1,
+                   msi_clim_fld=None,is_histeq=True,is_destriping=False,img_based=False,bandindex_slave=1,
                    bandindex_master=None,w1=None,w2=None,w3=None,w4=None):
             
             import os.path
@@ -32,7 +32,9 @@ class GEOAkaze(object):
                 bandindex_slave and bandindex_master (int): the index for reading bands in 
                                 the netcdf file (1 = Band1)
                 w1,w2 (int): boundaries for wavelength index of radiance to be averaged. (slave) 
-                w3,w4 (int): boundaries for wavelength index of radiance to be averaged. (master)              
+                w3,w4 (int): boundaries for wavelength index of radiance to be averaged. (master) 
+                img_based (bool): a flag to know if two images should be coregistered in the image
+                                    domain (true) as opposed to the geographic domain (false)             
             '''        
 
             # check if the slavefile is a folder or a file
@@ -84,7 +86,9 @@ class GEOAkaze(object):
             self.intercept_lon = 0.0
             self.slope_lon = 1.0
             self.success = 0
-            self.msi_clim_fld = msi_clim_fld        
+            self.msi_clim_fld = msi_clim_fld  
+            self.img_based = img_based  
+     
 
     def read_netcdf(self,filename,var):
         ''' 
@@ -223,8 +227,11 @@ class GEOAkaze(object):
                 date_slave = np.array(date_slave)
                 self.yyyymmdd = np.median(date_slave)
                 # make a mosaic
-                mosaic,self.lats_grid,self.lons_grid,self.maskslave = self.mosaicing(r,la,lo)
-           
+                if not self.img_based:
+                   mosaic,self.lats_grid,self.lons_grid,self.maskslave = self.mosaicing(r,la,lo)
+                else:
+                   mosaic = r
+                   mosaic[mosaic<=0] = np.nan
 
         elif self.typesat_slave == 2 or self.typesat_slave == 3: #landsat or MSI
             r,la,lo = self.read_rad(self.slave_bundle,self.typesat_slave)
@@ -257,7 +264,6 @@ class GEOAkaze(object):
         import numpy as np
         import cv2
 
-
         if self.typesat_master == 0:
             if self.is_master_mosaic:
                rad  = []
@@ -280,8 +286,13 @@ class GEOAkaze(object):
                 r,la,lo = self.read_rad(fname,self.typesat_master,self.bandindex_master,self.w3,self.w4)
                 if self.is_destriping: la = self.destriping(la)
                 # make a mosaic
-                r,lats,lons,_ = self.mosaicing(r,la,lo)
-                r = self.cutter(r,lats,lons)
+                if not self.img_based:
+                   r,lats,lons,_= self.mosaicing(r,la,lo)
+                   r = self.cutter(r,lats,lons)
+                else:
+                   r[r<=0] = np.nan
+                   pass
+
                 self.rawmaster = r
 
         elif self.typesat_master == 2 or self.typesat_master == 4: #landsat
@@ -303,9 +314,9 @@ class GEOAkaze(object):
             r = self.cutter(r,la,lo)
             self.rawmaster = r        
         
-         # normalizing
+        # normalizing
         self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX) 
-
+      
         if self.is_histeq:
            clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize=(20,20))
            self.master = clahe.apply(np.uint8(self.master*255))
@@ -423,65 +434,92 @@ class GEOAkaze(object):
         import cv2
         import numpy as np
         from scipy import stats
+        import matplotlib.pyplot as plt
+
 
         akaze_mod = cv2.AKAZE_create()
-
+        
         keypoints_1, descriptors_1 = akaze_mod.detectAndCompute(self.master,None)
         keypoints_2, descriptors_2 = akaze_mod.detectAndCompute(self.slave,None)
 
         bf = cv2.BFMatcher(cv2.DescriptorMatcher_BRUTEFORCE_HAMMING, crossCheck=True)
         matches = bf.match(descriptors_1,descriptors_2)
-
+     
         matches = sorted(matches, key = lambda x:x.distance)
 
         master_matched,slave_matched = self.find_matched_i_j(matches,keypoints_1,keypoints_2,self.dist_thr)
         
-        lat_1 = []
-        lon_1 = []
-        lat_2 = []
-        lon_2 = []
-
-        for i in range(np.shape(master_matched)[0]):
-            lat_1.append(self.lats_grid[int(np.round(master_matched[i,1])),int(np.round(master_matched[i,0]))])
-            lon_1.append(self.lons_grid[int(np.round(master_matched[i,1])),int(np.round(master_matched[i,0]))])
-            lat_2.append(self.lats_grid[int(np.round(slave_matched[i,1])),int(np.round(slave_matched[i,0]))])
-            lon_2.append(self.lons_grid[int(np.round(slave_matched[i,1])),int(np.round(slave_matched[i,0]))])
-
-        lat_1 = np.array(lat_1)
-        lat_2 = np.array(lat_2)
-        lon_1 = np.array(lon_1)
-        lon_2 = np.array(lon_2)
-
         pts1 = np.zeros((len(master_matched),2))
-        pts2 = np.zeros((len(master_matched),2))
+        pts2 = np.zeros((len(master_matched),2)) 
+        
+        if not self.img_based:
+           lat_1 = []
+           lon_1 = []
+           lat_2 = []
+           lon_2 = []
 
-        pts1[:,0] = lon_1
-        pts1[:,1] = lat_1
-        pts2[:,0] = lon_2
-        pts2[:,1] = lat_2
+           for i in range(np.shape(master_matched)[0]):
+               lat_1.append(self.lats_grid[int(np.round(master_matched[i,1])),int(np.round(master_matched[i,0]))])
+               lon_1.append(self.lons_grid[int(np.round(master_matched[i,1])),int(np.round(master_matched[i,0]))])
+               lat_2.append(self.lats_grid[int(np.round(slave_matched[i,1])),int(np.round(slave_matched[i,0]))])
+               lon_2.append(self.lons_grid[int(np.round(slave_matched[i,1])),int(np.round(slave_matched[i,0]))])
 
+           lat_1 = np.array(lat_1)
+           lat_2 = np.array(lat_2)
+           lon_1 = np.array(lon_1)
+           lon_2 = np.array(lon_2)
+
+           pts1[:,0] = lon_1
+           pts1[:,1] = lat_1
+           pts2[:,0] = lon_2
+           pts2[:,1] = lat_2
+
+           data_lat = np.column_stack([lat_1, lat_2])
+           data_lon = np.column_stack([lon_1, lon_2])
+        else:
+            i_1 =[]
+            j_1 =[]
+            i_2 =[]
+            j_2 =[]
+
+            for i in range(np.shape(master_matched)[0]):
+                i_2.append(((master_matched[i,0])))
+                j_2.append(((master_matched[i,1])))
+                i_1.append(((slave_matched[i,0])))
+                j_1.append(((slave_matched[i,1])))
+
+            i_1=np.array(i_1)
+            i_2=np.array(i_2)
+            j_1=np.array(j_1)
+            j_2=np.array(j_2)
+            data_i = np.column_stack([i_1, i_2])
+            data_j = np.column_stack([j_1, j_2])
+
+       
         print('potential number of matched points: ' + str(len(master_matched)))
-
+        
         self.nmatched = len(master_matched)
         self.matched_points_length = len(master_matched)
-
-        data = np.column_stack([lat_1, lat_2])
-        
-        good_lat1, good_lat2 = self.robust_inliner(data)
-        self.slope_lat, self.intercept_lat, self.r_value1, p_value, std_err = stats.linregress(good_lat1,good_lat2)
+        if not self.img_based:
+            good_lat1, good_lat2 = self.robust_inliner(data_lat)
+            self.slope_lat, self.intercept_lat, self.r_value1, p_value, std_err = stats.linregress(good_lat1,good_lat2)
     
-        data = np.column_stack([lon_1, lon_2])
-
-        good_lon1, good_lon2 = self.robust_inliner(data)
-        self.slope_lon, self.intercept_lon, self.r_value2, p_value, std_err = stats.linregress(good_lon1,good_lon2)
+            good_lon1, good_lon2 = self.robust_inliner(data_lon)
+            self.slope_lon, self.intercept_lon, self.r_value2, p_value, std_err = stats.linregress(good_lon1,good_lon2)
         
-        # this part will be replaced by a cross-validation method
-        if (abs(self.slope_lat)<0.9 or abs(self.slope_lat)>1.1 or abs(self.slope_lon)<0.9 or abs(self.slope_lon)>1.1 or
-              self.r_value2<0.95 or self.r_value1<0.95):
-           self.success = 0
+             # this part will be replaced by a cross-validation method
+            if (abs(self.slope_lat)<0.9 or abs(self.slope_lat)>1.1 or abs(self.slope_lon)<0.9 or abs(self.slope_lon)>1.1 or
+                self.r_value2<0.95 or self.r_value1<0.95):
+                self.success = 0
+            else:
+                self.success = 1
         else:
-           self.success = 1
-
+            good_i1, good_i2 = self.robust_inliner(data_i,doplot=True)
+            self.slope_i, self.intercept_i, self.r_value1, p_value, std_err = stats.linregress(good_i1,good_i2)
+    
+            good_j1, good_j2 = self.robust_inliner(data_j,doplot=True)
+            self.slope_j, self.intercept_j, self.r_value2, p_value, std_err = stats.linregress(good_j1,good_j2)
+            
     def find_matched_i_j(self,matches_var,keypoints1,keypoints2,dist_thr):
         '''
          A converter to transform the akaze objects to indices
@@ -514,7 +552,7 @@ class GEOAkaze(object):
         
         return list_kp1,list_kp2
 
-    def robust_inliner(self,data):
+    def robust_inliner(self,data,doplot=False):
         '''
         RANSAC algorithm: https://en.wikipedia.org/wiki/Random_sample_consensus
         ARGS:
@@ -535,18 +573,22 @@ class GEOAkaze(object):
            self.success = 0
         # Robustly fit linear model with RANSAC algorithm
         try:
-            model_robust, inliers = ransac(data, LineModelND, min_samples=5, residual_threshold=0.0005,
+            if not self.img_based:
+                model_robust, inliers = ransac(data, LineModelND, min_samples=5, residual_threshold=0.0005,
                                     max_trials=100000)
+            else:
+                model_robust, inliers = ransac(data, LineModelND, min_samples=3, residual_threshold=0.01,
+                                    max_trials=100000) 
         except:
             print('ransac cannot find outliers, failed!')
             self.success = 0
+
         outliers = inliers == False
         # Predict data of estimated models
         line_x = np.arange(-360, 360)
         line_y = model.predict_y(line_x)
         line_y_robust = model_robust.predict_y(line_x)
         # Compare estimated coefficients
-        doplot = False
         file_plot = './ransac_test.png'
 
         if doplot == True:
@@ -919,6 +961,35 @@ class GEOAkaze(object):
            file1 = open(filename, "w")
            #file1.writelines(L1)
            file1.writelines(L2)
+
+    def o2_ch4_align_img(self):
+        '''
+        finding the offset between o2 and ch4 in the image domain based
+        on Eamon Conway's approach
+
+        OUT: offset_o2_ch4: the offset between master and slave
+        '''
+        import numpy as np
+
+        #find the indices of non-nan gray scales
+        for i in range(0,np.shape(self.master)[1]):
+            if (self.master[0,i] != 0.0):
+                ind1 = i
+
+        for i in range(0,np.shape(self.master)[0]):
+            if (self.master[0,ind1] != 0.0):
+                ind2 = i
+
+        for i in range(0,np.shape(self.slave)[1]):
+            if (self.slave[0,i] != 0.0):
+                ind3 = i
+
+        for i in range(0,np.shape(self.slave)[0]):
+            if (self.slave[0,ind3] != 0.0):
+                ind4 = i
+    
+        self.offset_master_slave_across = ind1-ind3
+        self.offset_master_slave_along = ind2-ind4
 
     def hammer(self,slave_f,master_f1=None,master_f2=None,factor1=None,factor2=None):
         ''' 
