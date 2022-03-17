@@ -2,7 +2,6 @@
 # Apply the akaze algorithm on a satellite image with resepect to
 # a reference image to rectify the geolocation errors in the first image
 # Amir Souri (ahsouri@cfa.harvard.edu;ahsouri@gmail.com)
-# July 2021
 
 
 class GEOAkaze(object):
@@ -230,8 +229,9 @@ class GEOAkaze(object):
                 if not self.img_based:
                    mosaic,self.lats_grid,self.lons_grid,self.maskslave = self.mosaicing(r,la,lo)
                 else:
+                   r[r<=0] = np.nan
+                   #r=cv2.resize(r,(5*np.shape(r)[0],np.shape(r)[1]))
                    mosaic = r
-                   mosaic[mosaic<=0] = np.nan
 
         elif self.typesat_slave == 2 or self.typesat_slave == 3: #landsat or MSI
             r,la,lo = self.read_rad(self.slave_bundle,self.typesat_slave)
@@ -291,7 +291,8 @@ class GEOAkaze(object):
                    r = self.cutter(r,lats,lons)
                 else:
                    r[r<=0] = np.nan
-                   pass
+                   #r=cv2.resize(r,(5*np.shape(r)[0],np.shape(r)[1]))
+                  
 
                 self.rawmaster = r
 
@@ -972,6 +973,7 @@ class GEOAkaze(object):
         import numpy as np
 
         #find the indices of non-nan gray scales
+        
         for i in range(0,np.shape(self.master)[1]):
             if (self.master[0,i] != 0.0):
                 ind1 = i
