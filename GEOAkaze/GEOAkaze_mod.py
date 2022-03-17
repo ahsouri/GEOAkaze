@@ -965,33 +965,53 @@ class GEOAkaze(object):
 
     def o2_ch4_align_img(self):
         '''
-        finding the offset between o2 and ch4 in the image domain based
-        on Eamon Conway's approach
+        finding the offset between o2 and ch4 in the image domain 
 
         OUT: offset_o2_ch4: the offset between master and slave
         '''
         import numpy as np
-
-        #find the indices of non-nan gray scales
         
-        for i in range(0,np.shape(self.master)[1]):
-            if (self.master[0,i] != 0.0):
-                ind1 = i
+        fname = self.slave_bundle
+        rad_slave,la_slave,lo_slave = self.read_rad(fname,self.typesat_slave,self.bandindex_slave,self.w1,self.w2)
+        fname = self.master_bundle
+        rad_master,la_master,lo_master = self.read_rad(fname,self.typesat_master,self.bandindex_master,self.w3,self.w4)
 
-        for i in range(0,np.shape(self.master)[0]):
-            if (self.master[0,ind1] != 0.0):
-                ind2 = i
 
-        for i in range(0,np.shape(self.slave)[1]):
-            if (self.slave[0,i] != 0.0):
-                ind3 = i
+        print(np.shape(rad_slave))
+        print(np.shape(rad_master))
+        lats_grid_corrected = (la_slave-self.intercept_lat)/self.slope_lat
+        lons_grid_corrected = (lo_slave-self.intercept_lon)/self.slope_lon
+        
+        i_master = []
+        j_master = []
+        i_slave = []
+        j_slave = []
 
-        for i in range(0,np.shape(self.slave)[0]):
-            if (self.slave[0,ind3] != 0.0):
-                ind4 = i
-    
-        self.offset_master_slave_across = ind1-ind3
-        self.offset_master_slave_along = ind2-ind4
+        for i in range(0,np.shape(lats_grid_corrected)[0],5):
+            for j in range(0,np.shape(lats_grid_corrected)[1],10):
+                if np.isnan(rad_slave[i,j]):
+                    continue
+                cost = (lats_grid_corrected[i,j]-la_master)**2 + (lons_grid_corrected[i,j]-lo_master)**2
+                cost = np.sqrt(cost)
+               
+                if np.min(cost.flatten())<0.001:
+                   ind = np.argwhere(cost==np.min(cost.flatten()))
+                   if np.isnan(rad_master[ind[0,0],ind[0,1]]):
+                       continue
+                   i_master.append(ind[0,0])
+                   j_master.append(ind[0,1])
+                   i_slave.append(i)
+                   j_slave.append(j)
+        
+        i_master = np.array(i_master)
+        j_master = np.array(j_master)
+        i_slave = np.array(i_slave)
+        j_slave = np.array(j_slave)
+        self.offset_i = np.nanmedian(i_master-i_slave)
+        self.offset_j = np.nanmedian(j_master-j_slave)
+                
+        
+
 
     def hammer(self,slave_f,master_f1=None,master_f2=None,factor1=None,factor2=None):
         ''' 
