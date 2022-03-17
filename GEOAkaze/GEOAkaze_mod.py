@@ -970,6 +970,8 @@ class GEOAkaze(object):
         OUT: offset_o2_ch4: the offset between master and slave
         '''
         import numpy as np
+        import cv2
+        from scipy import stats
         
         fname = self.slave_bundle
         rad_slave,la_slave,lo_slave = self.read_rad(fname,self.typesat_slave,self.bandindex_slave,self.w1,self.w2)
@@ -977,8 +979,6 @@ class GEOAkaze(object):
         rad_master,la_master,lo_master = self.read_rad(fname,self.typesat_master,self.bandindex_master,self.w3,self.w4)
 
 
-        print(np.shape(rad_slave))
-        print(np.shape(rad_master))
         lats_grid_corrected = (la_slave-self.intercept_lat)/self.slope_lat
         lons_grid_corrected = (lo_slave-self.intercept_lon)/self.slope_lon
         
@@ -1007,12 +1007,13 @@ class GEOAkaze(object):
         j_master = np.array(j_master)
         i_slave = np.array(i_slave)
         j_slave = np.array(j_slave)
-        self.offset_i = np.nanmedian(i_master-i_slave)
-        self.offset_j = np.nanmedian(j_master-j_slave)
-                
-        
 
+        self.offset_i = np.nanmean(i_master-i_slave)
+        self.offset_j = np.nanmean(j_master-j_slave)
 
+        self.slope_i, self.intercept_i, _,_,_ = stats.linregress(i_slave,i_master)
+        self.slope_j, self.intercept_j, _,_,_ = stats.linregress(j_slave,j_master)
+  
     def hammer(self,slave_f,master_f1=None,master_f2=None,factor1=None,factor2=None):
         ''' 
         fixing the failed case (slave_f) using previous/next 
