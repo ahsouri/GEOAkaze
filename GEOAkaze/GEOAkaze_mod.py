@@ -1014,7 +1014,7 @@ class GEOAkaze(object):
         slope_i, _, _,_,_ = stats.linregress(i_slave,i_master)
         slope_j, _, _,_,_ = stats.linregress(j_slave,j_master)
 
-        if (slope_i>1.05) or (slope_j>1.05) or (slope_i<0.95) or (slope_j>0.95):
+        if (slope_i>1.05) or (slope_j>1.05) or (slope_i<0.95) or (slope_j<0.95):
             self.ch4_align_img_flag = 0.0
         else:
             self.ch4_align_img_flag = 1.0
