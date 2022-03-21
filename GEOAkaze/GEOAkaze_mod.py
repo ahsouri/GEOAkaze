@@ -398,7 +398,7 @@ class GEOAkaze(object):
            lat(float) : latitude
            lon(float) : longitude
         OUT:
-            mosaic, gridded_lat, gridded_lon
+           rad(float) : radiance
         ''' 
         import numpy as np
         from scipy.interpolate import griddata 
@@ -726,7 +726,7 @@ class GEOAkaze(object):
 
     def read_gee_tiff(self):
         '''
-        MSI reader
+        GEE TIFF reader
         Default ARGS:
            geefname (str): msi_clim_fld
         OUT:
@@ -966,8 +966,13 @@ class GEOAkaze(object):
     def o2_ch4_align_img(self):
         '''
         finding the offset between o2 and ch4 in the image domain 
-
-        OUT: offset_o2_ch4: the offset between master and slave
+ 
+        OUT: 
+            offset_o2_ch4: the offset between master and slave
+            ch4_align_img_flag (1 or 0): whether the offset is representative of
+                                         the misalignment
+            offset_i: shift along track
+            offset_j: shift across track
         '''
         import numpy as np
         import cv2
