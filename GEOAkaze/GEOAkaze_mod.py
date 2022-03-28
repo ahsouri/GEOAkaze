@@ -37,37 +37,42 @@ class GEOAkaze(object):
             '''        
 
             # check if the slavefile is a folder or a file
-            
             if os.path.isdir(os.path.abspath(slavefile[0])):
-                # we need to make a mosaic
+                # we need to make a mosaic because slave is a directory
                 self.is_slave_mosaic = True
                 self.slave_bundle = sorted(glob.glob(slavefile[0] + '/*.nc'))
             else:
+                # slave is a list
                 self.slave_bundle = []
                 if len(slavefile) > 1:
+                   # slave is a list of files (it's different than a folder)
                    self.is_slave_mosaic = True
                    for fname in slavefile:
                        self.slave_bundle.append(os.path.abspath(fname))
                 else:
+                    # slave is just one file
                     self.is_slave_mosaic = False
                     self.slave_bundle = os.path.abspath(slavefile[0])
             
             # check if the masterfile is a folder or a file
-
             if os.path.isdir(os.path.abspath(masterfile[0])):
-                # we need to make a mosaic
+                 # we need to make a mosaic because master is a directory
                 self.is_master_mosaic = True
                 self.master_bundle = sorted(glob.glob(masterfile[0] + '/*'))
             else:
+                # master is a list
                 self.is_master_mosaic = False
                 self.master_bundle = []
                 if len(masterfile) > 1:
+                   # master is a list of files (it's different than a folder)
                    self.is_master_mosaic = True
                    for fname in masterfile:
                        self.master_bundle.append(os.path.abspath(fname))  
-                else:   
+                else:  
+                   # master is just one file 
                    self.master_bundle = os.path.abspath(masterfile[0])
 
+            # Initialization
             self.gridsize = gridsize
             self.is_histeq = is_histeq 
             self.typesat_slave = typesat_slave
@@ -86,8 +91,7 @@ class GEOAkaze(object):
             self.slope_lon = 1.0
             self.success = 0
             self.msi_clim_fld = msi_clim_fld  
-            self.img_based = img_based  
-     
+            self.img_based = img_based
 
     def read_netcdf(self,filename,var):
         ''' 
@@ -139,8 +143,8 @@ class GEOAkaze(object):
             typesat = 0: MethaneAIR
                       1: MethaneSAT_OSSE(nc)
                       2: Landsat(nc)
-                      3: MSI(jp2)
-                      4: MSI(nc)
+                      3: MSI(nc), note that MSI jp2 files are not read 
+                                  by this function
 
             bandindex (int): the index of band (e.g., =1 for O2)
             w1,w2 (int): the range of wavelength indices for averaging
@@ -149,10 +153,14 @@ class GEOAkaze(object):
         '''
         import numpy as np
         
-        if typesat == 0 or typesat == 1:
+
+        if typesat == 0 or typesat == 1:  #MSAT or MAIR
+           #read radiance 
            rad = self.read_group_nc(fname,1,'Band' + str(bandindex),'Radiance')[:]
 
            # get flags used for labeling ortho settings
+           # this may look very counterintuitive, because of how L0-L1 is implemented
+
            av_used = self.read_group_nc(fname,1,'SupportingData','AvionicsUsed')
            ak_used= self.read_group_nc(fname,1,'SupportingData','AkazeUsed')
            op_used = self.read_group_nc(fname,1,'SupportingData','OptimizedUsed')
@@ -165,19 +173,20 @@ class GEOAkaze(object):
               lon = self.read_group_nc(fname,1,'SupportingData','AvionicsLongitude')[:]
 
            rad [rad <= 0] = np.nan
+
+           # averaging radiance
            if not (w1 is None): #w1 and w2 should be set or none of them
                rad = np.nanmean(rad[w1:w2,:,:],axis=0)
            else:
                rad = np.nanmean(rad[:,:,:],axis=0)
-        elif typesat == 2:
+        elif typesat == 2: #landsat (nc)
             rad = self.read_netcdf(fname,'Landsat')
             lat = self.read_netcdf(fname,'Lat')
             lon = self.read_netcdf(fname,'Lon')
-        elif typesat == 4:
+        elif typesat == 3: #MSI (nc)
             rad = self.read_netcdf(fname,'MSI_clim')
             lat = self.read_netcdf(fname,'lat')
             lon = self.read_netcdf(fname,'lon')
-         
         return rad,lat,lon
 
     def readslave(self):
@@ -189,56 +198,61 @@ class GEOAkaze(object):
         import numpy as np
         import cv2
 
-        if self.typesat_slave == 0:
+        if self.typesat_slave == 0: #MSAT or MAIR
             # read the data
             date_slave = []
-            if self.is_slave_mosaic:
+            if self.is_slave_mosaic:  #a bundle of files
                rad  = []
                lats = []
                lons = []
                for fname in self.slave_bundle:
-                   print(fname)
+                   print('reading ' + fname)
                    date_tmp = fname.split("_")
                    date_tmp = date_tmp[-3]
                    date_tmp = date_tmp.split("T")
                    date_tmp = date_tmp[0]
                    date_slave.append(float(date_tmp))
-                   r,la,lo = self.read_rad(fname,self.typesat_slave,self.bandindex_slave,self.w1,self.w2)
+                   # reading radiance, latitude, longitude
+                   r,la,lo = self.read_rad(fname,self.typesat_slave,self.bandindex_slave,
+                                           self.w1,self.w2)
+                   # destriping (default is false)
                    if self.is_destriping: la = self.destriping(la)
                    rad.append(r)
                    lats.append(la)
                    lons.append(lo)
-
+               # save dates    
                date_slave = np.array(date_slave)
                self.yyyymmdd = np.median(date_slave)
                # make a mosaic
                mosaic,self.lats_grid,self.lons_grid,self.maskslave = self.mosaicing(rad,lats,lons)
-            else:
+            else: #one file only
                 fname = self.slave_bundle
-                print(fname)
+                print('reading ' + fname)
                 date_tmp = fname.split("_")
                 date_tmp = date_tmp[-3]
                 date_tmp = date_tmp.split("T")
                 date_tmp = date_tmp[0]
                 date_slave.append(float(date_tmp))
+                # reading radiance, latitude, longitude
                 r,la,lo = self.read_rad(fname,self.typesat_slave,self.bandindex_slave,self.w1,self.w2)
+                # destriping (default is false)
                 if self.is_destriping: la = self.destriping(la)
                 date_slave = np.array(date_slave)
                 self.yyyymmdd = np.median(date_slave)
                 # make a mosaic
-                if not self.img_based:
+                if not self.img_based: #coregister over Earth's surface
                    mosaic,self.lats_grid,self.lons_grid,self.maskslave = self.mosaicing(r,la,lo)
                 else:
-                   r[r<=0] = np.nan
-                   #r=cv2.resize(r,(5*np.shape(r)[0],np.shape(r)[1]))
+                   r[r<=0] = np.nan #coregister in the image-domain
                    mosaic = r
 
         elif self.typesat_slave == 2 or self.typesat_slave == 3: #landsat or MSI
             r,la,lo = self.read_rad(self.slave_bundle,self.typesat_slave)
 
-        # normalizing
+        # normalizing between 0 and 1 based on min/max
         self.slave = cv2.normalize(mosaic,np.zeros(mosaic.shape, np.double),0.0,1.0,cv2.NORM_MINMAX)
         
+        #histogrram equalization for enhancing image contrast
         if self.is_histeq:
            clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize = (20,20))
            self.slave = clahe.apply(np.uint8(self.slave*255))
@@ -252,7 +266,7 @@ class GEOAkaze(object):
         else:
            self.slavelat = la
            self.slavelon = lo
-
+        # raw image
         self.rawslave =  r
 
     def readmaster(self): 
@@ -264,60 +278,63 @@ class GEOAkaze(object):
         import numpy as np
         import cv2
 
-        if self.typesat_master == 0:
-            if self.is_master_mosaic:
+        if self.typesat_master == 0: #MSAT or MAIR
+            if self.is_master_mosaic: #a bundle of files
                rad  = []
                lats = []
                lons = []
                for fname in self.master_bundle:
-                   print(fname)
+                   print('reading ' + fname)
+                   # reading radiance, latitude, longitude
                    r,la,lo = self.read_rad(fname,self.typesat_master,self.bandindex_master,self.w3,self.w4)
                    if self.is_destriping: la = self.destriping(la)
                    rad.append(r)
                    lats.append(la)
                    lons.append(lo)
-
+               # make a mosaic
                r,lats,lons, _ = self.mosaicing(rad,lats,lons)
+               # cutter is needed for subseting the master image based on
+               # min/max of slave lat/lon
                r = self.cutter(r,lats,lons)
+               # raw image
                self.rawmaster = r
             else:
                 fname = self.master_bundle
-                print(fname)
+                print('reading ' + fname)
+                # reading radiance, latitude, longitude
                 r,la,lo = self.read_rad(fname,self.typesat_master,self.bandindex_master,self.w3,self.w4)
+                # destriping (default is false)
                 if self.is_destriping: la = self.destriping(la)
                 # make a mosaic
-                if not self.img_based:
+                if not self.img_based: #coregister over Earth's surface
                    r,lats,lons,_= self.mosaicing(r,la,lo)
                    r = self.cutter(r,lats,lons)
-                else:
+                else: #coregister in the image domain
                    r[r<=0] = np.nan
-                   #r=cv2.resize(r,(5*np.shape(r)[0],np.shape(r)[1]))
-                  
-
+                # raw image
                 self.rawmaster = r
 
-        elif self.typesat_master == 2 or self.typesat_master == 4: #landsat
+        elif self.typesat_master == 2 or self.typesat_master == 4: #landsat or MSI (nc)
+            # reading radiance, latitude, longitude
             r,la,lo = self.read_rad(self.master_bundle,self.typesat_master)
             r = self.cutter(r,la,lo)
             self.rawmaster = r
-        elif self.typesat_master == 3: #MSI jp2
+        elif self.typesat_master == 3: #MSI (jp2)
+            # reading reflectance, latitude, longitude
             rs,las,los = self.read_MSI(self.master_bundle)
-            for msi_ind in range(len(rs)):
+            for msi_ind in range(len(rs)): #looping over selected MSI images
                 r = self.cutter(rs[msi_ind],las[msi_ind],los[msi_ind])
                 if msi_ind == 0:
                    final_msi = np.zeros_like(r)
                 r[final_msi != 0.0] = 0.0
                 final_msi = final_msi + r
+            # a scaling factor should be applied to make ref physical
             self.rawmaster = final_msi/10000.0
-            r = final_msi
-        elif self.typesat_master == 5:
-            r,la,lo  = self.read_rad(self.master_bundle,self.typesat_master)
-            r = self.cutter(r,la,lo)
-            self.rawmaster = r        
+            r = final_msi       
         
-        # normalizing
+        # normalizing between 0 and 1 based on min/max
         self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX) 
-      
+        #histogrram equalization for enhancing image contrast
         if self.is_histeq:
            clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize=(20,20))
            self.master = clahe.apply(np.uint8(self.master*255))
@@ -339,7 +356,7 @@ class GEOAkaze(object):
         from scipy.spatial import Delaunay
         from scipy.interpolate import LinearNDInterpolator
 
-        # first making a mesh
+        # first making a mesh based on min/max of lat/lon
         max_lat = []
         min_lat = []
         max_lon = []
@@ -362,27 +379,28 @@ class GEOAkaze(object):
         lons_grid,lats_grid = np.meshgrid(lon,lat)
 
         check_list = isinstance(rads, list)
-
-        if check_list:
-           full_moasic = np.zeros((np.shape(lons_grid)[0],np.shape(lons_grid)[1],len(rads)))
         
+        if check_list: # if the target is a list
+           full_moasic = np.zeros((np.shape(lons_grid)[0],np.shape(lons_grid)[1],len(rads)))
            for i in range(len(rads)):
                points = np.zeros((np.size(lons[i]),2))
                points[:,0] = np.array(lons[i]).flatten()
                points[:,1] = np.array(lats[i]).flatten()
                tri = Delaunay(points)
+               # linear barycentric interpolation
                interpolator = LinearNDInterpolator(tri,rads[i].flatten())
                full_moasic[:,:,i] = interpolator(lons_grid,lats_grid)
-            # averaging
+           # averaging
            full_moasic[full_moasic<=0] = np.nan
            mosaic = np.nanmean(full_moasic,axis=2)
            maskslave = np.isnan(mosaic)
 
-        else:
+        else: # not a list
             points = np.zeros((np.size(lons),2))
             points[:,0] = np.array(lons).flatten()
             points[:,1] = np.array(lats).flatten()
             tri = Delaunay(points)
+            # linear barycentric interpolation
             interpolator = LinearNDInterpolator(tri,rads.flatten())
             mosaic = interpolator(lons_grid, lats_grid)
             mosaic[mosaic<=0] = np.nan
@@ -403,24 +421,24 @@ class GEOAkaze(object):
         import numpy as np
         from scipy.interpolate import griddata 
 
+        # find the range in lon and lat of the slave image
         lon_range = np.array([min(self.lons_grid.flatten()),max(self.lons_grid.flatten())])
         lat_range = np.array([min(self.lats_grid.flatten()),max(self.lats_grid.flatten())])
-        
-
+        # create a mask
         mask_lon = (lon >= lon_range[0]) & (lon <= lon_range[1])
         mask_lat = (lat >= lat_range[0]) & (lat <= lat_range[1])
-        
+        # mask it, f**king, mask it
         rad = rad [ mask_lon & mask_lat ]
         lat = lat [ mask_lon & mask_lat ]
         lon = lon [ mask_lon & mask_lat ]
-
+        
+        # regrid the master into the slave lats/lons
         points = np.zeros((np.size(lat),2))
         points[:,0] = lon.flatten()
         points[:,1] = lat.flatten()
-
         rad = griddata(points, rad.flatten(), (self.lons_grid, self.lats_grid), method='linear')
+        # masking based on bad data in the slave
         rad[self.maskslave] = np.nan
-        
         return rad
 
     def akaze(self):
@@ -437,28 +455,32 @@ class GEOAkaze(object):
         from scipy import stats
         import matplotlib.pyplot as plt
 
-
+        # create the akaze object
         akaze_mod = cv2.AKAZE_create()
         
+        # compute keypoints and their descriptors
         keypoints_1, descriptors_1 = akaze_mod.detectAndCompute(self.master,None)
         keypoints_2, descriptors_2 = akaze_mod.detectAndCompute(self.slave,None)
 
+        # match them based on hamming distance
         bf = cv2.BFMatcher(cv2.DescriptorMatcher_BRUTEFORCE_HAMMING, crossCheck=True)
         matches = bf.match(descriptors_1,descriptors_2)
-     
+        
+        # sort them
         matches = sorted(matches, key = lambda x:x.distance)
-
+        
+        # find i and j of matched points and get rid of bad paird based on dist_hr
         master_matched,slave_matched = self.find_matched_i_j(matches,keypoints_1,keypoints_2,self.dist_thr)
         
+
         pts1 = np.zeros((len(master_matched),2))
         pts2 = np.zeros((len(master_matched),2)) 
         
-        if not self.img_based:
+        if not self.img_based: # coregister over the Earth's surface
            lat_1 = []
            lon_1 = []
            lat_2 = []
            lon_2 = []
-
            for i in range(np.shape(master_matched)[0]):
                lat_1.append(self.lats_grid[int(np.round(master_matched[i,1])),int(np.round(master_matched[i,0]))])
                lon_1.append(self.lons_grid[int(np.round(master_matched[i,1])),int(np.round(master_matched[i,0]))])
@@ -477,7 +499,7 @@ class GEOAkaze(object):
 
            data_lat = np.column_stack([lat_1, lat_2])
            data_lon = np.column_stack([lon_1, lon_2])
-        else:
+        else: #coregister in the image domain
             i_1 =[]
             j_1 =[]
             i_2 =[]
@@ -496,25 +518,27 @@ class GEOAkaze(object):
             data_i = np.column_stack([i_1, i_2])
             data_j = np.column_stack([j_1, j_2])
 
-       
         print('potential number of matched points: ' + str(len(master_matched)))
         
         self.nmatched = len(master_matched)
         self.matched_points_length = len(master_matched)
-        if not self.img_based:
+        if not self.img_based: 
+
+            # find legit matches based on RANSAC
             good_lat1, good_lat2 = self.robust_inliner(data_lat)
             self.slope_lat, self.intercept_lat, self.r_value1, p_value, std_err = stats.linregress(good_lat1,good_lat2)
     
             good_lon1, good_lon2 = self.robust_inliner(data_lon)
             self.slope_lon, self.intercept_lon, self.r_value2, p_value, std_err = stats.linregress(good_lon1,good_lon2)
         
-             # this part will be replaced by a cross-validation method
+            # a subjective flag to define the success
             if (abs(self.slope_lat)<0.9 or abs(self.slope_lat)>1.1 or abs(self.slope_lon)<0.9 or abs(self.slope_lon)>1.1 or
                 self.r_value2<0.95 or self.r_value1<0.95):
                 self.success = 0
             else:
                 self.success = 1
         else:
+            # image domain
             good_i1, good_i2 = self.robust_inliner(data_i,doplot=True)
             self.slope_i, self.intercept_i, self.r_value1, p_value, std_err = stats.linregress(good_i1,good_i2)
     
@@ -566,7 +590,9 @@ class GEOAkaze(object):
         import numpy as np
         import matplotlib.pyplot as plt
         
+        # open a least-squares model
         model = LineModelND()
+        # are there enough points to do ransac?
         try:
            model.estimate(data)
         except:
@@ -589,10 +615,9 @@ class GEOAkaze(object):
         line_x = np.arange(-360, 360)
         line_y = model.predict_y(line_x)
         line_y_robust = model_robust.predict_y(line_x)
-        # Compare estimated coefficients
-        file_plot = './ransac_test.png'
-
+        # plotting for debuging purposes (default false)
         if doplot == True:
+           file_plot = './ransac_test.png'
            fig, ax = plt.subplots()
            ax.plot(data[inliers, 0], data[inliers, 1], '.b', alpha=0.6,
              label='Inlier data')
@@ -628,24 +653,26 @@ class GEOAkaze(object):
 
         intersect_box = []
         msi_date_intsec = []
-
+        
+        # loop over jp2 files
         for fname in msifname:
+            # read MSI information
             src = rasterio.open(fname,driver='JP2OpenJPEG')
+            # UTM zones
             zones = (int(str(src.crs)[-2::]))
             out_trans = src.transform
-            # check the boundaries
+            # get the boundaries
             width = src.width
             height = src.height
-
 
             temp =  out_trans * (0,0)
             corner1 = np.array(utm.to_latlon(temp[0],temp[1],int(zones),'T'))
             temp =  out_trans * (height,width)
             corner4 = np.array(utm.to_latlon(temp[0],temp[1],int(zones),'T') )
 
+            # make polygons for both slave and master images based on their corners
             p_master = Polygon([(corner1[1],corner4[0]), (corner4[1],corner4[0]), (corner4[1],corner1[0]), 
                              (corner1[1],corner1[0]), (corner1[1],corner4[0])])
-
             p_slave = Polygon([(np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid))), 
                           (np.max(np.max(self.lons_grid)),np.min(np.min(self.lats_grid))),
                           (np.max(np.max(self.lons_grid)),np.max(np.max(self.lats_grid))), 
@@ -653,7 +680,9 @@ class GEOAkaze(object):
                           (np.min(np.min(self.lons_grid)),np.min(np.min(self.lats_grid)))])
 
             file_size = os.path.getsize(fname)
- 
+            # see if the MSI falls in the slave image
+            # the file size is to prevent some bad/incomplete MSI images from
+            # getting involved
             if  (p_master.intersects(p_slave)) and file_size>15096676:
                     intersect_box.append(fname)
                     date_tmp = fname.split("_")
@@ -665,6 +694,7 @@ class GEOAkaze(object):
         if (not intersect_box):
             print('No MSI files being relevant to the targeted location/time were found, please fetch more MSI data')
             if (self.msi_clim_fld is not None):
+                # we resort to using the climatology of MSI
                 print('trying the climatological files now!')
                 msi_gray,lat_msi,lon_msi = self.read_gee_tiff()
             else:
@@ -673,13 +703,14 @@ class GEOAkaze(object):
                 msi_gray = self.slave * 0.0
                 lat_msi = self.lats_grid
                 lon_msi = self.lons_grid
-            
             return msi_gray,lat_msi,lon_msi
         
-        if intersect_box:
+        if intersect_box: # there is/are MSIs falling in the slave domain
+           # date because we want to find the closet image
            dist_date = np.abs(np.array(msi_date_intsec) - float(self.yyyymmdd))
            dist_date_sorted = sorted(dist_date)
            counter = 0
+           # finding the most relevant MSI images based on date
            index_chosen_sorted = []
            for i in range(np.size(dist_date_sorted)):
                j = np.where(dist_date == dist_date_sorted[i])[0]
@@ -692,13 +723,18 @@ class GEOAkaze(object):
            msi_grays = []
            lat_msis = []
            lon_msis = []
+           # loop over selected MSI images
            for index_bundle in range(len(index_chosen_sorted)):
+               # read MSI
                src = rasterio.open(intersect_box[index_chosen_sorted[index_bundle]],driver='JP2OpenJPEG')
+               # UTM zone
                zones = (int(str(src.crs)[-2::]))
+               # the transformation from i,j to E and N
                out_trans = src.transform
                msi_img = src.read(1)
                print('The chosen MSI is/are ' +  intersect_box[index_chosen_sorted[index_bundle]])
-        
+               
+               # i,j to E and N
                E_msi = np.zeros_like(msi_img)*np.nan
                N_msi = np.zeros_like(msi_img)*np.nan
                for i in range(np.shape(E_msi)[0]):
@@ -709,7 +745,8 @@ class GEOAkaze(object):
 
                E_msi = np.float32(E_msi)
                N_msi = np.float32(N_msi)
-
+               
+               # E and N to lon and lat
                temp = np.array(utm.to_latlon(E_msi.flatten(),N_msi.flatten(),int(zones),'T'))
                temp2 = np.reshape(temp,(2,np.shape(msi_img)[0],np.shape(msi_img)[1]))
 
@@ -744,16 +781,16 @@ class GEOAkaze(object):
         
         within_box = []
         intersect_box = []
+        # sort tiff files
         geefname = sorted(glob.glob(self.msi_clim_fld + '/*.tif'))
 
         for fname in geefname:
-
             try:
                 src = rasterio.open(fname,crs='EPSG:3857')
             except:
                 continue
             out_trans = src.transform
-            # check the boundaries
+            # check the boundaries and make polygons
             width = src.width
             height = src.height
 
@@ -798,6 +835,7 @@ class GEOAkaze(object):
             out_trans = src.transform
             msi_img = src.read(1)
 
+        # getting lat and lons based on the transformation
         lat_msi = np.zeros_like(msi_img)*np.nan
         lon_msi = np.zeros_like(msi_img)*np.nan
         for i in range(np.shape(lon_msi)[0]):
@@ -809,9 +847,8 @@ class GEOAkaze(object):
         lat_msi = np.float32(lat_msi)
         lon_msi = np.float32(lon_msi)
         msi_gray = np.array(msi_img)
-                
-        return msi_gray,lat_msi,lon_msi
 
+        return msi_gray,lat_msi,lon_msi
 
     def write_to_nc(self,output_file):
         ''' 
@@ -913,8 +950,8 @@ class GEOAkaze(object):
         points[:,0] = self.lons_grid.flatten()
         points[:,1] = self.lats_grid.flatten()
 
-        img_master = griddata(points, self.rawmaster.flatten(), (self.slavelon, self.slavelat), method='nearest')
- 
+        img_master = griddata(points, self.rawmaster.flatten(), 
+                              (self.slavelon, self.slavelat), method='nearest')
         data[:,:] = img_master
 
         ncfile.close()
@@ -978,12 +1015,13 @@ class GEOAkaze(object):
         import cv2
         from scipy import stats
         
+        # we need to read the slave/master one more time for this application
         fname = self.slave_bundle
         rad_slave,la_slave,lo_slave = self.read_rad(fname,self.typesat_slave,self.bandindex_slave,self.w1,self.w2)
         fname = self.master_bundle
         rad_master,la_master,lo_master = self.read_rad(fname,self.typesat_master,self.bandindex_master,self.w3,self.w4)
 
-
+        # correct lats/lons based on correction factors made by AKAZE
         lats_grid_corrected = (la_slave-self.intercept_lat)/self.slope_lat
         lons_grid_corrected = (lo_slave-self.intercept_lon)/self.slope_lon
         
@@ -991,8 +1029,9 @@ class GEOAkaze(object):
         j_master = []
         i_slave = []
         j_slave = []
-
-        for i in range(0,np.shape(lats_grid_corrected)[0],5):
+         
+        # loop over nodes of lat and lons and pair i and js
+        for i in range(0,np.shape(lats_grid_corrected)[0],1):
             for j in range(0,np.shape(lats_grid_corrected)[1],10):
                 if np.isnan(rad_slave[i,j]):
                     continue
@@ -1013,9 +1052,17 @@ class GEOAkaze(object):
         i_slave = np.array(i_slave)
         j_slave = np.array(j_slave)
 
+        # normal offset
         self.offset_i = np.nanmean(i_master-i_slave)
         self.offset_j = np.nanmean(j_master-j_slave)
 
+        # perspective transformation
+        data_master = np.column_stack([j_master, i_master])
+        data_slave = np.column_stack([j_slave, i_slave])
+
+        self.perspective_param = self.perspective(data_slave,data_master)
+
+        # estimate the deviation from the unity
         slope_i, _, _,_,_ = stats.linregress(i_slave,i_master)
         slope_j, _, _,_,_ = stats.linregress(j_slave,j_master)
 
@@ -1023,7 +1070,42 @@ class GEOAkaze(object):
             self.ch4_align_img_flag = 0.0
         else:
             self.ch4_align_img_flag = 1.0
-  
+
+        self.deviation_align = 100.0*np.abs(slope_i-1.0)
+
+    def perspective(self,points_in,points_out):
+        '''
+        perspective projection 
+        ARGS:
+           points_in (float, array): points in the slave space 
+           points_out (float, array): points in the master space
+        OUT:
+           h (9x1,float) : perspective params
+        ''' 
+        import numpy as np
+        from numpy.linalg import svd
+
+        n = points_in.shape[0]
+
+        A = np.zeros((n,9))
+        B = np.zeros((n,9))
+
+        for i in range(0,n,1):
+            x = points_in[i,0]
+            y = points_in[i,1]
+            xx = points_out[i,0]
+            yy = points_out[i,1]            
+            A[i,:] = ([x,y,1,0,0,0,-xx*x,-xx*y,-xx])
+            B[i,:] = ([0,0,0,x,y,1,-yy*x,-yy*y,-yy])
+
+        C = np.zeros((2*n,9))
+        C[0:n,:] = A
+        C[n::,:] = B
+        
+        svd_m = svd(C)
+        h = svd_m[2]
+        return h[-1,:]
+
     def hammer(self,slave_f,master_f1=None,master_f2=None,factor1=None,factor2=None):
         ''' 
         fixing the failed case (slave_f) using previous/next 
@@ -1099,7 +1181,6 @@ class GEOAkaze(object):
             self.slope_lon, self.intercept_lon, self.r_value2, \
                  p_value, std_err = stats.linregress(data_master[:,0],
                                                      data_slave[:,0])
-
             self.success = 1
         
 
