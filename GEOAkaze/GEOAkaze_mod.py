@@ -1135,11 +1135,11 @@ class GEOAkaze(object):
         from netCDF4 import Dataset
 
         ncfile = Dataset(target_nc_file,'a',format="NETCDF4")
-        data_lat = ncfile.groups['Geolocation'].variables['Latitude']
-        data_lon = ncfile.groups['Geolocation'].variables['Longitude']
+        data_lat = ncfile.groups['Level1'].variables['Latitude']
+        data_lon = ncfile.groups['Level1'].variables['Longitude']
 
-        lat = ncfile.groups['Geolocation'].variables['Latitude'][:]
-        lon = ncfile.groups['Geolocation'].variables['Longitude'][:]
+        lat = ncfile.groups['Level1'].variables['Latitude'][:]
+        lon = ncfile.groups['Level1'].variables['Longitude'][:]
 
         if self.success == 1:
            lats_grid_corrected = (lat-self.intercept_lat)/self.slope_lat
