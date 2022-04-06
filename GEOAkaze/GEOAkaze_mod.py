@@ -7,8 +7,9 @@
 class GEOAkaze(object):
 
     def __init__(self,slavefile,masterfile,gridsize,typesat_slave,typesat_master,dist_thr,
-                   msi_clim_fld=None,is_histeq=True,is_destriping=False,img_based=False,bandindex_slave=1,
-                   bandindex_master=None,w1=None,w2=None,w3=None,w4=None):
+                   msi_clim_fld=None,is_histeq=True,is_destriping=False,img_based=False,
+                   dx_buffer=None,forcer = False,bandindex_slave=1,bandindex_master=None,
+                   w1=None,w2=None,w3=None,w4=None):
             
             import os.path
             import glob
@@ -30,6 +31,8 @@ class GEOAkaze(object):
                 is_destriping (bool): whether to remove strips 
                 bandindex_slave and bandindex_master (int): the index for reading bands in 
                                 the netcdf file (1 = Band1)
+                dx_buffer (float): extending the master image beyond the slave corners by this
+                                   value (degree; 1 degree ~= 110 km), suggest using 0.005o
                 w1,w2 (int): boundaries for wavelength index of radiance to be averaged. (slave) 
                 w3,w4 (int): boundaries for wavelength index of radiance to be averaged. (master) 
                 img_based (bool): a flag to know if two images should be coregistered in the image
@@ -92,6 +95,8 @@ class GEOAkaze(object):
             self.success = 0
             self.msi_clim_fld = msi_clim_fld  
             self.img_based = img_based
+            self.dx_buffer = dx_buffer
+            self.forcer = forcer
 
     def read_netcdf(self,filename,var):
         ''' 
@@ -160,18 +165,22 @@ class GEOAkaze(object):
 
            # get flags used for labeling ortho settings
            # this may look very counterintuitive, because of how L0-L1 is implemented
+           # here i use a forcer variable (default = false) to override this part
+           
+           if (not self.forcer):
+              av_used = self.read_group_nc(fname,1,'SupportingData','AvionicsUsed')
+              ak_used= self.read_group_nc(fname,1,'SupportingData','AkazeUsed')
+              op_used = self.read_group_nc(fname,1,'SupportingData','OptimizedUsed')
 
-           av_used = self.read_group_nc(fname,1,'SupportingData','AvionicsUsed')
-           ak_used= self.read_group_nc(fname,1,'SupportingData','AkazeUsed')
-           op_used = self.read_group_nc(fname,1,'SupportingData','OptimizedUsed')
-
-           if (op_used == 0 and ak_used == 0 and av_used == 1):
+              if (op_used == 0 and ak_used == 0 and av_used == 1):
+                 lat = self.read_group_nc(fname,1,'Geolocation','Latitude')[:]
+                 lon = self.read_group_nc(fname,1,'Geolocation','Longitude')[:]
+              else:
+                 lat = self.read_group_nc(fname,1,'SupportingData','AvionicsLatitude')[:]
+                 lon = self.read_group_nc(fname,1,'SupportingData','AvionicsLongitude')[:]
+           else:
               lat = self.read_group_nc(fname,1,'Geolocation','Latitude')[:]
               lon = self.read_group_nc(fname,1,'Geolocation','Longitude')[:]
-           else:
-              lat = self.read_group_nc(fname,1,'SupportingData','AvionicsLatitude')[:]
-              lon = self.read_group_nc(fname,1,'SupportingData','AvionicsLongitude')[:]
-
            rad [rad <= 0] = np.nan
 
            # averaging radiance
@@ -372,9 +381,15 @@ class GEOAkaze(object):
         max_lat = np.nanmax(max_lat)
         min_lon = np.nanmin(min_lon)
         max_lon = np.nanmax(max_lon)
+        
+        # adding a buffer around the corner
+        if (self.dx_buffer is None):
+           dx = 0.0
+        else:
+           dx = self.dx_buffer
 
-        lon = np.arange(min_lon,max_lon,self.gridsize)
-        lat = np.arange(min_lat,max_lat,self.gridsize)
+        lon = np.arange(min_lon-dx,max_lon+dx,self.gridsize)
+        lat = np.arange(min_lat-dx,max_lat+dx,self.gridsize)
 
         lons_grid,lats_grid = np.meshgrid(lon,lat)
 
@@ -437,8 +452,12 @@ class GEOAkaze(object):
         points[:,0] = lon.flatten()
         points[:,1] = lat.flatten()
         rad = griddata(points, rad.flatten(), (self.lons_grid, self.lats_grid), method='linear')
+        
         # masking based on bad data in the slave
-        rad[self.maskslave] = np.nan
+        if self.typesat_master == 0: # no need to mask for O2-CH4 relative correction
+           pass
+        else:
+           rad[self.maskslave] = np.nan
         return rad
 
     def akaze(self):
@@ -1012,8 +1031,8 @@ class GEOAkaze(object):
             offset_j: shift across track
         '''
         import numpy as np
-        import cv2
         from scipy import stats
+        import matplotlib.pyplot as plt
         
         # we need to read the slave/master one more time for this application
         fname = self.slave_bundle
@@ -1032,8 +1051,8 @@ class GEOAkaze(object):
          
         # loop over nodes of lat and lons and pair i and js
         for i in range(0,np.shape(lats_grid_corrected)[0],1):
-            for j in range(0,np.shape(lats_grid_corrected)[1],10):
-                if np.isnan(rad_slave[i,j]):
+            for j in range(0,np.shape(lats_grid_corrected)[1],20):
+                if np.isnan(rad_slave[i,j]) or np.isnan(rad_master[i,j]):
                     continue
                 cost = (lats_grid_corrected[i,j]-la_master)**2 + (lons_grid_corrected[i,j]-lo_master)**2
                 cost = np.sqrt(cost)
@@ -1105,6 +1124,30 @@ class GEOAkaze(object):
         svd_m = svd(C)
         h = svd_m[2]
         return h[-1,:]
+    
+    def overwrite_latlon(self,target_nc_file):
+        ''' 
+        overwriting a target nc files with corrected lats/lons
+        ARGS:
+            target_nc_file (char): the target nc file path
+        '''
+
+        from netCDF4 import Dataset
+
+        ncfile = Dataset(target_nc_file,'a',format="NETCDF4")
+        data_lat = ncfile.groups['Geolocation'].variables['Latitude']
+        data_lon = ncfile.groups['Geolocation'].variables['Longitude']
+
+        if self.success == 1:
+           lats_grid_corrected = (self.slavelat-self.intercept_lat)/self.slope_lat
+           lons_grid_corrected = (self.slavelon-self.intercept_lon)/self.slope_lon
+        else:
+           print("AKAZE failed so we should not do this!")
+
+        data_lat[:,:] = lats_grid_corrected
+        data_lon[:,:] = lons_grid_corrected
+
+        ncfile.close()
 
     def hammer(self,slave_f,master_f1=None,master_f2=None,factor1=None,factor2=None):
         ''' 
