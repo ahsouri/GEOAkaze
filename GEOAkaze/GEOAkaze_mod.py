@@ -1138,9 +1138,12 @@ class GEOAkaze(object):
         data_lat = ncfile.groups['Geolocation'].variables['Latitude']
         data_lon = ncfile.groups['Geolocation'].variables['Longitude']
 
+        lat = ncfile.groups['Geolocation'].variables['Latitude'][:]
+        lon = ncfile.groups['Geolocation'].variables['Longitude'][:]
+
         if self.success == 1:
-           lats_grid_corrected = (self.slavelat-self.intercept_lat)/self.slope_lat
-           lons_grid_corrected = (self.slavelon-self.intercept_lon)/self.slope_lon
+           lats_grid_corrected = (lat-self.intercept_lat)/self.slope_lat
+           lons_grid_corrected = (lon-self.intercept_lon)/self.slope_lon
         else:
            print("AKAZE failed so we should not do this!")
 
