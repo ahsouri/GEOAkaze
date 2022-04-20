@@ -7,7 +7,7 @@
 class GEOAkaze(object):
 
     def __init__(self,slavefile,masterfile,gridsize,typesat_slave,typesat_master,dist_thr,
-                   msi_clim_fld=None,is_histeq=True,is_destriping=False,img_based=False,
+                   min_samples = 3, residual_threshold= 0.0001, msi_clim_fld=None,is_histeq=True,is_destriping=False,img_based=False,
                    dx_buffer=None,forcer = False,bandindex_slave=1,bandindex_master=None,
                    w1=None,w2=None,w3=None,w4=None):
             
@@ -97,6 +97,8 @@ class GEOAkaze(object):
             self.img_based = img_based
             self.dx_buffer = dx_buffer
             self.forcer = forcer
+            self.min_samples = min_samples
+            self.residual_threshold = residual_threshold
 
     def read_netcdf(self,filename,var):
         ''' 
@@ -620,11 +622,8 @@ class GEOAkaze(object):
         # Robustly fit linear model with RANSAC algorithm
         try:
             if not self.img_based:
-                model_robust, inliers = ransac(data, LineModelND, min_samples=5, residual_threshold=0.0005,
-                                    max_trials=100000)
-            else:
-                model_robust, inliers = ransac(data, LineModelND, min_samples=3, residual_threshold=0.01,
-                                    max_trials=100000) 
+                model_robust, inliers = ransac(data, LineModelND, self.min_samples,
+                self.residual_threshold,max_trials=100000)
         except:
             print('ransac cannot find outliers, failed!')
             self.success = 0
