@@ -263,7 +263,7 @@ class GEOAkaze(object):
         
         #histogrram equalization for enhancing image contrast
         if self.is_histeq:
-           clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize = (20,20))
+           clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize = (8,8))
            self.slave = clahe.apply(np.uint8(self.slave*255))
         else:
            self.slave = np.uint8(self.slave*255)
@@ -345,7 +345,7 @@ class GEOAkaze(object):
         self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX) 
         #histogrram equalization for enhancing image contrast
         if self.is_histeq:
-           clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize=(20,20))
+           clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize=(8,8))
            self.master = clahe.apply(np.uint8(self.master*255))
         else:
            self.master = np.uint8(self.master*255)
