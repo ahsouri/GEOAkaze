@@ -627,6 +627,7 @@ class GEOAkaze(object):
         except:
             print('ransac cannot find outliers, failed!')
             self.success = 0
+            return
 
         outliers = inliers == False
         # Predict data of estimated models
@@ -826,7 +827,7 @@ class GEOAkaze(object):
             
             if (p_master.contains(p_slave)):
                     within_box.append(fname)
-            elif (p_master.intersects(p_slave)):
+            elif (p_master.intersects(p_slave)) and (p_master.intersection(p_slave).area):
                     intersect_box.append(fname)
         
         if ((not within_box) and (not intersect_box)):
@@ -973,6 +974,22 @@ class GEOAkaze(object):
         data[:,:] = img_master
 
         ncfile.close()
+
+    def msi_reference(self):  
+        ''' 
+          append master image to the L1 data
+        ''' 
+        from netCDF4 import Dataset
+        import numpy as np
+        from scipy.interpolate import griddata 
+
+        points = np.zeros((np.size(self.lats_grid),2))
+        points[:,0] = self.lons_grid.flatten()
+        points[:,1] = self.lats_grid.flatten()
+
+        img_master = griddata(points, self.rawmaster.flatten(), 
+                              (self.slavelon, self.slavelat), method='nearest')
+        return img_master
 
     def savetokmz(self,fname):
         ''' 
