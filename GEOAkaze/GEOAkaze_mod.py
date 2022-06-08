@@ -1181,6 +1181,9 @@ class GEOAkaze(object):
         import numpy as np
         import matplotlib.pyplot as plt
 
+        print('hi')
+        print(master_f1)
+        print(master_f2)
         # read the slave and master
         _ ,lat_sl,lon_sl = self.read_rad(slave_f,0,1)
         if not (master_f1 is None):
@@ -1188,8 +1191,11 @@ class GEOAkaze(object):
         if not (master_f2 is None):
            master_rad_2,lat_m2,lon_m2 = self.read_rad(master_f2,0,1)
 
-        if (master_f1 is not None) or (master_f2 is not None): 
-            
+        print(np.shape(master_rad_1))
+        print(np.shape(lat_sl))
+
+       
+        if (master_f1 is not None) or (master_f2 is not None):
             #find the indices of non-nan gray scales
             if (master_f1 is not None):
                 saw_first_nan = False
@@ -1198,8 +1204,7 @@ class GEOAkaze(object):
                       ind1 = i
                       saw_first_nan = True
                    if (saw_first_nan) and np.isnan(master_rad_1[-1,i]):
-                      ind2 = i - 1    
-                
+                      ind2 = i - 1
                 pts1_m1 = np.zeros((ind2-ind1+1,2))
                 pts2_m1 = np.zeros((ind2-ind1+1,2))
 
@@ -1227,13 +1232,13 @@ class GEOAkaze(object):
                 pts2_m2[:,1] = lat_sl[-1,ind1:ind2+1]
 
             if (master_f1 is not None):
-               data_master = np.concatenate([pts1_m1, pts1_m2])
-               print(np.shape(data_master))
+               data_master = pts1_m1
+               data_slave  = pts2_m1
             if (master_f2 is not None):
-               data_slave = np.concatenate([pts2_m1, pts2_m2])
-               print(np.shape(data_slave))
+               data_master = pts1_m2
+               data_slave  = pts2_m2
 
-            
+
             self.slope_lat, self.intercept_lat, self.r_value1, \
                  p_value, std_err = stats.linregress(data_master[:,1],
                                                      data_slave[:,1])
@@ -1241,9 +1246,8 @@ class GEOAkaze(object):
                  p_value, std_err = stats.linregress(data_master[:,0],
                                                      data_slave[:,0])
             self.success = 1
-        
 
-        
-
-        
-        
+            print(self.slope_lat)
+            print(self.slope_lon)
+            print(self.intercept_lat)
+            print(self.intercept_lon)
