@@ -1188,10 +1188,10 @@ class GEOAkaze(object):
         if not (master_f2 is None):
            master_rad_2,lat_m2,lon_m2 = self.read_rad(master_f2,0,1)
 
-        if ~(master_f1 is None) or ~(master_f2 is None): 
+        if (master_f1 is not None) or (master_f2 is not None): 
             
             #find the indices of non-nan gray scales
-            if ~(master_f1 is None):
+            if (master_f1 is not None):
                 saw_first_nan = False
                 for i in range(0,np.shape(master_rad_1)[1]):
                    if ~np.isnan(master_rad_1[-1,i]):
@@ -1209,7 +1209,7 @@ class GEOAkaze(object):
                 pts2_m1[:,1] = lat_sl[0,ind1:ind2+1]
 
             #find the indices of non-nan gray scales
-            if ~(master_f2 is None):
+            if (master_f2 is not None):
                 saw_first_nan = False
                 for i in range(0,np.shape(master_rad_2)[1]):
                     if ~np.isnan(master_rad_2[-1,i]):
@@ -1226,10 +1226,10 @@ class GEOAkaze(object):
                 pts2_m2[:,0] = lon_sl[-1,ind1:ind2+1]
                 pts2_m2[:,1] = lat_sl[-1,ind1:ind2+1]
 
-            if ~(master_f1 is None):
+            if (master_f1 is not None):
                data_master = np.concatenate([pts1_m1, pts1_m2])
                print(np.shape(data_master))
-            if ~(master_f2 is None):
+            if (master_f2 is not None):
                data_slave = np.concatenate([pts2_m1, pts2_m2])
                print(np.shape(data_slave))
 
