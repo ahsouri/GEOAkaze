@@ -1168,7 +1168,7 @@ class GEOAkaze(object):
 
         ncfile.close()
 
-    def hammer(self,slave_f,master_f1=None,master_f2=None,factor1=None,factor2=None):
+    def hammer(self,slave_f,master_f1=None,master_f2=None):
         ''' 
         fixing the failed case (slave_f) using previous/next 
         or both successful cases
@@ -1184,59 +1184,56 @@ class GEOAkaze(object):
         # read the slave and master
         _ ,lat_sl,lon_sl = self.read_rad(slave_f,0,1)
         if not (master_f1 is None):
-           master_rad_1,lat_m1,lo_m1 = self.read_rad(master_f1,0,1)
-           factors = np.loadtxt(factor1, delimiter=',')
-           print(factors)
-           print(np.shape(factors))
-           lat_m1 = (lat_m1 - factors[3])/factors[1]
-           lon_m1 = (lo_m1 - factors[2])/factors[0] 
+           master_rad_1,lat_m1,lon_m1 = self.read_rad(master_f1,0,1)
         if not (master_f2 is None):
-           master_rad_2,lat_m2,lo_m2 = self.read_rad(master_f2,0,1)
-           factors = np.loadtxt(factor2, delimiter=',')
-           lat_m2 = (lat_m1 - factors[3])/factors[1]
-           lon_m2 = (lon_m1 - factors[2])/factors[0] 
+           master_rad_2,lat_m2,lon_m2 = self.read_rad(master_f2,0,1)
 
-        if ~(master_f1 is None) and ~(master_f2 is None): #only previous master is supplied
+        if ~(master_f1 is None) or ~(master_f2 is None): 
             
             #find the indices of non-nan gray scales
-            saw_first_nan = False
-            for i in range(0,np.shape(master_rad_1)[1]):
-                if ~np.isnan(master_rad_1[-1,i]):
-                    ind1 = i
-                    saw_first_nan = True
-                if (saw_first_nan) and np.isnan(master_rad_1[-1,i]):
-                    ind2 = i - 1    
+            if ~(master_f1 is None):
+                saw_first_nan = False
+                for i in range(0,np.shape(master_rad_1)[1]):
+                   if ~np.isnan(master_rad_1[-1,i]):
+                      ind1 = i
+                      saw_first_nan = True
+                   if (saw_first_nan) and np.isnan(master_rad_1[-1,i]):
+                      ind2 = i - 1    
                 
-            pts1_m1 = np.zeros((ind2-ind1+1,2))
-            pts2_m1 = np.zeros((ind2-ind1+1,2))
+                pts1_m1 = np.zeros((ind2-ind1+1,2))
+                pts2_m1 = np.zeros((ind2-ind1+1,2))
 
-            pts1_m1[:,0] = lon_m1[-1,ind1:ind2+1]
-            pts1_m1[:,1] = lat_m1[-1,ind1:ind2+1]
-            pts2_m1[:,0] = lon_sl[0,ind1:ind2+1]
-            pts2_m1[:,1] = lat_sl[0,ind1:ind2+1]
+                pts1_m1[:,0] = lon_m1[-1,ind1:ind2+1]
+                pts1_m1[:,1] = lat_m1[-1,ind1:ind2+1]
+                pts2_m1[:,0] = lon_sl[0,ind1:ind2+1]
+                pts2_m1[:,1] = lat_sl[0,ind1:ind2+1]
 
-                        #find the indices of non-nan gray scales
-            saw_first_nan = False
-            for i in range(0,np.shape(master_rad_2)[1]):
-                if ~np.isnan(master_rad_2[-1,i]):
-                    ind1 = i
-                    saw_first_nan = True
-                if (saw_first_nan) and np.isnan(master_rad_2[-1,i]):
-                    ind2 = i - 1
-                    
-                
-            pts1_m2 = np.zeros((ind2-ind1+1,2))
-            pts2_m2 = np.zeros((ind2-ind1+1,2))
+            #find the indices of non-nan gray scales
+            if ~(master_f2 is None):
+                saw_first_nan = False
+                for i in range(0,np.shape(master_rad_2)[1]):
+                    if ~np.isnan(master_rad_2[-1,i]):
+                       ind1 = i
+                       saw_first_nan = True
+                    if (saw_first_nan) and np.isnan(master_rad_2[-1,i]):
+                       ind2 = i - 1
 
-            pts1_m2[:,0] = lon_m2[0,ind1:ind2+1]
-            pts1_m2[:,1] = lat_m2[0,ind1:ind2+1]
-            pts2_m2[:,0] = lon_sl[-1,ind1:ind2+1]
-            pts2_m2[:,1] = lat_sl[-1,ind1:ind2+1]
+                pts1_m2 = np.zeros((ind2-ind1+1,2))
+                pts2_m2 = np.zeros((ind2-ind1+1,2))
 
-            data_master = np.concatenate([pts1_m1, pts1_m2])
-            print(np.shape(data_master))
-            data_slave = np.concatenate([pts2_m1, pts2_m2])
-            print(np.shape(data_slave))
+                pts1_m2[:,0] = lon_m2[0,ind1:ind2+1]
+                pts1_m2[:,1] = lat_m2[0,ind1:ind2+1]
+                pts2_m2[:,0] = lon_sl[-1,ind1:ind2+1]
+                pts2_m2[:,1] = lat_sl[-1,ind1:ind2+1]
+
+            if ~(master_f1 is None):
+               data_master = np.concatenate([pts1_m1, pts1_m2])
+               print(np.shape(data_master))
+            if ~(master_f2 is None):
+               data_slave = np.concatenate([pts2_m1, pts2_m2])
+               print(np.shape(data_slave))
+
+            
             self.slope_lat, self.intercept_lat, self.r_value1, \
                  p_value, std_err = stats.linregress(data_master[:,1],
                                                      data_slave[:,1])
@@ -1250,4 +1247,3 @@ class GEOAkaze(object):
 
         
         
-
