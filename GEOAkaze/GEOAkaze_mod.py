@@ -558,6 +558,25 @@ class GEOAkaze(object):
                 self.success = 0
             else:
                 self.success = 1
+          
+            # scoring
+            score = []
+            weight = []
+
+            score[0] = np.size(good_lon1)/np.size(data_lat)
+            score[1] = np.std(good_lat2)*np.std(good_lon2)/(np.std(data_lat))/(np.std(data_lon))
+            score[2] = self.r_value1*self.r_value2
+
+            weight[0] = 40.0
+            weight[1] = 40.0
+            weight[2] = 20.0
+
+            score = np.array(score)
+            weight = np.array(weight)
+
+            print(score)
+            self.score = score*weight/(np.sum(weight))
+
         else:
             # image domain
             good_i1, good_i2 = self.robust_inliner(data_i,doplot=True)
@@ -566,6 +585,8 @@ class GEOAkaze(object):
             good_j1, good_j2 = self.robust_inliner(data_j,doplot=True)
             self.slope_j, self.intercept_j, self.r_value2, p_value, std_err = stats.linregress(good_j1,good_j2)
             
+
+
     def find_matched_i_j(self,matches_var,keypoints1,keypoints2,dist_thr):
         '''
          A converter to transform the akaze objects to indices
@@ -1193,18 +1214,24 @@ class GEOAkaze(object):
 
         print(np.shape(master_rad_1))
         print(np.shape(lat_sl))
-
+        plt.imshow(master_rad_1,aspect='auto')
+        plt.show()
        
         if (master_f1 is not None) or (master_f2 is not None):
             #find the indices of non-nan gray scales
             if (master_f1 is not None):
                 saw_first_nan = False
                 for i in range(0,np.shape(master_rad_1)[1]):
-                   if ~np.isnan(master_rad_1[-1,i]):
-                      ind1 = i
-                      saw_first_nan = True
-                   if (saw_first_nan) and np.isnan(master_rad_1[-1,i]):
-                      ind2 = i - 1
+                    if not saw_first_nan:
+                      if ~np.isnan(master_rad_1[-1,i]):
+                         ind1 = i
+                         saw_first_nan = True
+                    if (saw_first_nan) and np.isnan(master_rad_1[-1,i]):
+                         ind2 = i - 1
+                         break
+
+                print(ind1)
+                print(ind2)
                 pts1_m1 = np.zeros((ind2-ind1+1,2))
                 pts2_m1 = np.zeros((ind2-ind1+1,2))
 
@@ -1251,3 +1278,10 @@ class GEOAkaze(object):
             print(self.slope_lon)
             print(self.intercept_lat)
             print(self.intercept_lon)
+ 
+            self.intercept_lat = np.nanmean(-data_master[:,1] + data_slave[:,1])
+            self.intercept_lon = np.nanmean(-data_master[:,0] + data_slave[:,0])
+
+            self.slope_lat = 1.0
+            self.slope_lon = 1.0
+
