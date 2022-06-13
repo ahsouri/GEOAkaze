@@ -640,6 +640,7 @@ class GEOAkaze(object):
         except:
            print('not enough matched points to work with')
            self.success = 0
+           return 0
         # Robustly fit linear model with RANSAC algorithm
         try:
             if not self.img_based:
@@ -648,7 +649,7 @@ class GEOAkaze(object):
         except:
             print('ransac cannot find outliers, failed!')
             self.success = 0
-            return
+            return 0
 
         outliers = inliers == False
         # Predict data of estimated models
@@ -1187,6 +1188,48 @@ class GEOAkaze(object):
         data_lat[:,:] = lats_grid_corrected
         data_lon[:,:] = lons_grid_corrected
 
+        ncfile.close()
+
+    def save_latlon(self,input_file,target_nc_file):
+        ''' 
+        overwriting a target nc files with corrected lats/lons
+        ARGS:
+            target_nc_file (char): the target nc file path
+        '''
+        import numpy as np
+        from netCDF4 import Dataset
+        from numpy import dtype
+
+        # input file 
+        lat = self.read_group_nc(input_file,1,'Geolocation','Latitude')[:]
+        lon = self.read_group_nc(input_file,1,'Geolocation','Longitude')[:]  
+        latc = self.read_group_nc(input_file,1,'Geolocation','CornerLatitude')[:]   
+        lonc = self.read_group_nc(input_file,1,'Geolocation','CornerLongitude')[:]  
+
+        # correct them
+        if self.success == 1:
+            lat = (lat-self.intercept_lat)/self.slope_lat
+            lon = (lon-self.intercept_lon)/self.slope_lon
+            latc = (latc-self.intercept_lat)/self.slope_lat
+            lonc = (lonc-self.intercept_lat)/self.slope_lat
+        else:
+            return
+
+        ncfile = Dataset(target_nc_file,'w',format="NETCDF4")
+        # create the x and y dimensions.
+        ncfile.createDimension('x',np.shape(lat)[0])
+        ncfile.createDimension('y',np.shape(lat)[1])
+        ncfile.createDimension('c',4)
+
+        lat1 = ncfile.createVariable('Latitude',dtype('float64').char,('y','x'))
+        lat1[:,:] = lat
+        lon1 = ncfile.createVariable('Longitude',dtype('float64').char,('y','x'))
+        lon1[:,:] = lon
+        latc1 = ncfile.createVariable('LatitudeCorner',dtype('float64').char,('c','y','x'))
+        latc1[:,:] = latc
+        lonc1 = ncfile.createVariable('LongitudeCorner',dtype('float64').char,('c','y','x'))
+        lonc1[:,:] = lonc   
+             
         ncfile.close()
 
     def hammer(self,slave_f,master_f1=None,master_f2=None):
