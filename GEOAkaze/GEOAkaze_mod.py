@@ -1205,7 +1205,7 @@ class GEOAkaze(object):
         lon = self.read_group_nc(input_file,1,'Geolocation','Longitude')[:]  
         latc = self.read_group_nc(input_file,1,'Geolocation','CornerLatitude')[:]   
         lonc = self.read_group_nc(input_file,1,'Geolocation','CornerLongitude')[:]  
-
+        time_air = self.read_group_nc(input_file,1,'Geolocation','Time')[:]  
         # correct them
         if self.success == 1:
             lat = (lat-self.intercept_lat)/self.slope_lat
@@ -1229,7 +1229,8 @@ class GEOAkaze(object):
         latc1[:,:] = latc
         lonc1 = ncfile.createVariable('LongitudeCorner',dtype('float64').char,('c','y','x'))
         lonc1[:,:] = lonc   
-             
+        time1 = ncfile.createVariable('LongitudeCorner',dtype('float64').char,('y'))
+        time1[:,:] = time_air   
         ncfile.close()
 
     def hammer(self,slave_f,master_f1=None,master_f2=None):
