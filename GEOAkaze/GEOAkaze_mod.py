@@ -1230,7 +1230,7 @@ class GEOAkaze(object):
         lonc1 = ncfile.createVariable('LongitudeCorner',dtype('float64').char,('c','y','x'))
         lonc1[:,:] = lonc   
         time1 = ncfile.createVariable('LongitudeCorner',dtype('float64').char,('y'))
-        time1[:,:] = time_air   
+        time1[:] = time_air   
         ncfile.close()
 
     def hammer(self,slave_f,master_f1=None,master_f2=None):
