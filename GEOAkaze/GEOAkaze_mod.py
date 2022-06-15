@@ -16,8 +16,8 @@ class GEOAkaze(object):
             '''
             Initializing GEOAkaze with the primary inputs
             ARGS: 
-                slavefile (char): the name or the folder for the target satellite
-                masterfile (char): the name or the folder for the reference image
+                slavefile (list): the list of name or the folder for the target satellite
+                masterfile (list): the list of name or the folder for the reference image
                 gridsize (float): grid size of mosaicing in degree unit
                 is_histeq (bool): applying an adaptive histogram equalization
                 typesat_slave and typesat_master (int):     
@@ -28,11 +28,15 @@ class GEOAkaze(object):
                       4: MSI(nc)
 
                 dist_thr (int): a threshold used for filtering bad matches
+                min_samples(int): minimum samples used for RANSAC
+                residual_threshold(float): th residual threshold used for RANSAC convergance
+                msi_clim_fld(bool): using the climatology (turn it on for MSAT)
                 is_destriping (bool): whether to remove strips 
                 bandindex_slave and bandindex_master (int): the index for reading bands in 
                                 the netcdf file (1 = Band1)
                 dx_buffer (float): extending the master image beyond the slave corners by this
                                    value (degree; 1 degree ~= 110 km), suggest using 0.005o
+                forcer(bool): use Geolocation/Lat and /Lon from the master L1 (turn it on)
                 w1,w2 (int): boundaries for wavelength index of radiance to be averaged. (slave) 
                 w3,w4 (int): boundaries for wavelength index of radiance to be averaged. (master) 
                 img_based (bool): a flag to know if two images should be coregistered in the image
@@ -1174,9 +1178,10 @@ class GEOAkaze(object):
 
     def save_latlon(self,input_file,target_nc_file):
         ''' 
-        overwriting a target nc files with corrected lats/lons
+        creating a L1-like file with new lat/lon information
         ARGS:
-            target_nc_file (char): the target nc file path
+            input_file(char): the input file 
+            target_nc_file (char): the output file
         '''
         import numpy as np
         from netCDF4 import Dataset
@@ -1199,8 +1204,8 @@ class GEOAkaze(object):
 
         ncfile = Dataset(target_nc_file,'w',format="NETCDF4")
         # create the x and y dimensions.
-        ncfile.createDimension('x',np.shape(lat)[0])
-        ncfile.createDimension('y',np.shape(lat)[1])
+        ncfile.createDimension('x',np.shape(lat)[1])
+        ncfile.createDimension('y',np.shape(lat)[0])
         ncfile.createDimension('c',4)
 
         lat1 = ncfile.createVariable('Latitude',dtype('float64').char,('y','x'))
@@ -1211,7 +1216,7 @@ class GEOAkaze(object):
         latc1[:,:] = latc
         lonc1 = ncfile.createVariable('LongitudeCorner',dtype('float64').char,('c','y','x'))
         lonc1[:,:] = lonc   
-        time1 = ncfile.createVariable('LongitudeCorner',dtype('float64').char,('y'))
+        time1 = ncfile.createVariable('time',dtype('float64').char,('y'))
         time1[:] = time_air   
         ncfile.close()
 
