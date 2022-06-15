@@ -1237,7 +1237,7 @@ class GEOAkaze(object):
         time1 = ncfile.createVariable('time',dtype('float64').char,('y'))
         time1[:] = time_air 
         rad1 = ncfile.createVariable('rad',dtype('float64').char,('y','x'))
-        rad1[:] = rad1   
+        rad1[:,:] = rad1   
         ncfile.close()
 
     def hammer(self,slave_f,master_f1=None,master_f2=None):
