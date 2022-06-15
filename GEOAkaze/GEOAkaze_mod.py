@@ -1012,9 +1012,9 @@ class GEOAkaze(object):
         diff_lon = diff_lon.flatten()
 
         cost = np.nanmean(np.sqrt(diff_lat**2 + diff_lon**2))
-        if cost>threshold:
+        if cost<threshold:
             self.success = 0
-            
+
     def savetokmz(self,fname):
         ''' 
         saving the mosaic of slave to a kmz file
