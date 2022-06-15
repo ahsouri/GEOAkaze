@@ -1209,12 +1209,14 @@ class GEOAkaze(object):
         latc = self.read_group_nc(input_file,1,'Geolocation','CornerLatitude')[:]   
         lonc = self.read_group_nc(input_file,1,'Geolocation','CornerLongitude')[:]  
         time_air = self.read_group_nc(input_file,1,'Geolocation','Time')[:]  
+        rad = self.read_group_nc(input_file,1,'Band1','Radiance')[:] 
+        rad = np.nanmean(rad,axis=0)
         # correct them
         if self.success == 1:
             lat = (lat-self.intercept_lat)/self.slope_lat
             lon = (lon-self.intercept_lon)/self.slope_lon
             latc = (latc-self.intercept_lat)/self.slope_lat
-            lonc = (lonc-self.intercept_lat)/self.slope_lat
+            lonc = (lonc-self.intercept_lon)/self.slope_lon
         else:
             return
 
@@ -1233,7 +1235,9 @@ class GEOAkaze(object):
         lonc1 = ncfile.createVariable('LongitudeCorner',dtype('float64').char,('c','y','x'))
         lonc1[:,:] = lonc   
         time1 = ncfile.createVariable('time',dtype('float64').char,('y'))
-        time1[:] = time_air   
+        time1[:] = time_air 
+        rad1 = ncfile.createVariable('rad',dtype('float64').char,('y','x'))
+        rad1[:] = rad1   
         ncfile.close()
 
     def hammer(self,slave_f,master_f1=None,master_f2=None):
