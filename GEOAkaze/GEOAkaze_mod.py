@@ -558,24 +558,6 @@ class GEOAkaze(object):
                 self.success = 0
             else:
                 self.success = 1
-          
-            # scoring
-            score = []
-            weight = []
-
-            score[0] = np.size(good_lon1)/np.size(data_lat)
-            score[1] = np.std(good_lat2)*np.std(good_lon2)/(np.std(data_lat))/(np.std(data_lon))
-            score[2] = self.r_value1*self.r_value2
-
-            weight[0] = 40.0
-            weight[1] = 40.0
-            weight[2] = 20.0
-
-            score = np.array(score)
-            weight = np.array(weight)
-
-            print(score)
-            self.score = score*weight/(np.sum(weight))
 
         else:
             # image domain
