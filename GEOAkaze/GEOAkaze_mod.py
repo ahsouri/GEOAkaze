@@ -563,6 +563,7 @@ class GEOAkaze(object):
             else:
                 self.success = 1
 
+            
         else:
             # image domain
             good_i1, good_i2 = self.robust_inliner(data_i,doplot=True)
@@ -999,6 +1000,21 @@ class GEOAkaze(object):
                               (self.slavelon, self.slavelat), method='nearest')
         return img_master
 
+    def dictator(self,threshold):
+        import numpy as np
+        lats_grid_corrected = (self.lats_grid-self.intercept_lat)/self.slope_lat
+        lons_grid_corrected = (self.lons_grid-self.intercept_lon)/self.slope_lon 
+
+        diff_lat = self.lats_grid - lats_grid_corrected
+        diff_lon = self.lons_grid - lons_grid_corrected
+
+        diff_lat = diff_lat.flatten()
+        diff_lon = diff_lon.flatten()
+
+        cost = np.nanmean(np.sqrt(diff_lat**2 + diff_lon**2))
+        if cost>threshold:
+            self.success = 0
+            
     def savetokmz(self,fname):
         ''' 
         saving the mosaic of slave to a kmz file
