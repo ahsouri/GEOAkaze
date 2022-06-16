@@ -179,8 +179,12 @@ class GEOAkaze(object):
               ak_used= self.read_group_nc(fname,1,'SupportingData','AkazeUsed')
               op_used = self.read_group_nc(fname,1,'SupportingData','OptimizedUsed')
               if self.forcer_use_av:
-                 lat = self.read_group_nc(fname,1,'SupportingData','AvionicsLatitude')[:]
-                 lon = self.read_group_nc(fname,1,'SupportingData','AvionicsLongitude')[:] 
+                 try:
+                    lat = self.read_group_nc(fname,1,'SupportingData','AvionicsLatitude')[:]
+                    lon = self.read_group_nc(fname,1,'SupportingData','AvionicsLongitude')[:] 
+                 except:
+                    lat = self.read_group_nc(fname,1,'Geolocation','Latitude')[:]
+                    lon = self.read_group_nc(fname,1,'Geolocation','Longitude')[:] 
               else:
                  if (op_used == 0 and ak_used == 0 and av_used == 1):
                     lat = self.read_group_nc(fname,1,'Geolocation','Latitude')[:]
