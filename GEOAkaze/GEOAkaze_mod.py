@@ -8,7 +8,7 @@ class GEOAkaze(object):
 
     def __init__(self,slavefile,masterfile,gridsize,typesat_slave,typesat_master,dist_thr,
                    min_samples = 3, residual_threshold= 0.0001, msi_clim_fld=None,is_histeq=True,is_destriping=False,img_based=False,
-                   dx_buffer=None,forcer = False,bandindex_slave=1,bandindex_master=None,
+                   dx_buffer=None,forcer = False,forcer_use_av = False,bandindex_slave=1,bandindex_master=None,
                    w1=None,w2=None,w3=None,w4=None):
             
             import os.path
@@ -103,6 +103,7 @@ class GEOAkaze(object):
             self.forcer = forcer
             self.min_samples = min_samples
             self.residual_threshold = residual_threshold
+            self.forcer_use_av = forcer_use_av
 
     def read_netcdf(self,filename,var):
         ''' 
@@ -177,13 +178,16 @@ class GEOAkaze(object):
               av_used = self.read_group_nc(fname,1,'SupportingData','AvionicsUsed')
               ak_used= self.read_group_nc(fname,1,'SupportingData','AkazeUsed')
               op_used = self.read_group_nc(fname,1,'SupportingData','OptimizedUsed')
-
-              if (op_used == 0 and ak_used == 0 and av_used == 1):
-                 lat = self.read_group_nc(fname,1,'Geolocation','Latitude')[:]
-                 lon = self.read_group_nc(fname,1,'Geolocation','Longitude')[:]
-              else:
+              if self.forcer_use_av:
                  lat = self.read_group_nc(fname,1,'SupportingData','AvionicsLatitude')[:]
-                 lon = self.read_group_nc(fname,1,'SupportingData','AvionicsLongitude')[:]
+                 lon = self.read_group_nc(fname,1,'SupportingData','AvionicsLongitude')[:] 
+              else:
+                 if (op_used == 0 and ak_used == 0 and av_used == 1):
+                    lat = self.read_group_nc(fname,1,'Geolocation','Latitude')[:]
+                    lon = self.read_group_nc(fname,1,'Geolocation','Longitude')[:]
+                 else:
+                    lat = self.read_group_nc(fname,1,'SupportingData','AvionicsLatitude')[:]
+                    lon = self.read_group_nc(fname,1,'SupportingData','AvionicsLongitude')[:]
            else:
               lat = self.read_group_nc(fname,1,'Geolocation','Latitude')[:]
               lon = self.read_group_nc(fname,1,'Geolocation','Longitude')[:]
