@@ -1330,6 +1330,10 @@ class GEOAkaze(object):
                data_master = pts1_m2
                data_slave  = pts2_m2
 
+            if (master_f1 is not None) and (master_f2 is not None):
+                data_master = np.stack(pts1_m1,pts1_m2)
+                data_slave = np.stack(pts2_m1,pts2_m2)
+
 
             self.slope_lat, self.intercept_lat, self.r_value1, \
                  p_value, std_err = stats.linregress(data_master[:,1],
@@ -1339,14 +1343,5 @@ class GEOAkaze(object):
                                                      data_slave[:,0])
             self.success = 1
 
-            print(self.slope_lat)
-            print(self.slope_lon)
-            print(self.intercept_lat)
-            print(self.intercept_lon)
- 
-            self.intercept_lat = np.nanmean(-data_master[:,1] + data_slave[:,1])
-            self.intercept_lon = np.nanmean(-data_master[:,0] + data_slave[:,0])
 
-            self.slope_lat = 1.0
-            self.slope_lon = 1.0
 
