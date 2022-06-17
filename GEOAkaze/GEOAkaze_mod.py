@@ -1267,20 +1267,12 @@ class GEOAkaze(object):
         import numpy as np
         import matplotlib.pyplot as plt
 
-        print('hi')
-        print(master_f1)
-        print(master_f2)
         # read the slave and master
         _ ,lat_sl,lon_sl = self.read_rad(slave_f,0,1)
         if not (master_f1 is None):
            master_rad_1,lat_m1,lon_m1 = self.read_rad(master_f1,0,1)
         if not (master_f2 is None):
            master_rad_2,lat_m2,lon_m2 = self.read_rad(master_f2,0,1)
-
-        print(np.shape(master_rad_1))
-        print(np.shape(lat_sl))
-        plt.imshow(master_rad_1,aspect='auto')
-        plt.show()
        
         if (master_f1 is not None) or (master_f2 is not None):
             #find the indices of non-nan gray scales
