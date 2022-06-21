@@ -1216,15 +1216,19 @@ class GEOAkaze(object):
         rad = self.read_group_nc(input_file,1,'Band1','Radiance')[:] 
         rad = np.nanmean(rad,axis=0)
 
-        av_used = self.read_group_nc(input_file,1,'SupportingData','AvionicsUsed')
-        ak_used= self.read_group_nc(input_file,1,'SupportingData','AkazeUsed')
-        op_used = self.read_group_nc(input_file,1,'SupportingData','OptimizedUsed')
-        if (op_used == 0 and ak_used == 0 and av_used == 1):
-            lat = self.read_group_nc(input_file,1,'Geolocation','Latitude')[:]
-            lon = self.read_group_nc(input_file,1,'Geolocation','Longitude')[:]
+        if (not self.forcer):
+           av_used = self.read_group_nc(input_file,1,'SupportingData','AvionicsUsed')
+           ak_used= self.read_group_nc(input_file,1,'SupportingData','AkazeUsed')
+           op_used = self.read_group_nc(input_file,1,'SupportingData','OptimizedUsed')
+           if (op_used == 0 and ak_used == 0 and av_used == 1):
+              lat = self.read_group_nc(input_file,1,'Geolocation','Latitude')[:]
+              lon = self.read_group_nc(input_file,1,'Geolocation','Longitude')[:]
+           else:
+              lat = self.read_group_nc(input_file,1,'SupportingData','AvionicsLatitude')[:]
+              lon = self.read_group_nc(input_file,1,'SupportingData','AvionicsLongitude')[:]
         else:
-            lat = self.read_group_nc(input_file,1,'SupportingData','AvionicsLatitude')[:]
-            lon = self.read_group_nc(input_file,1,'SupportingData','AvionicsLongitude')[:]
+            lat = self.read_group_nc(input_file,1,'Geolocation','Latitude')[:]
+            lon = self.read_group_nc(input_file,1,'Geolocation','Longitude')[:]    
         # correct them
         if self.success == 1:
             lat = (lat-self.intercept_lat)/self.slope_lat
@@ -1302,10 +1306,10 @@ class GEOAkaze(object):
                 saw_first_nan = False
                 for i in range(0,np.shape(master_rad_2)[1]):
                     if not saw_first_nan:
-                      if ~np.isnan(master_rad_1[0,i]):
+                      if ~np.isnan(master_rad_2[0,i]):
                          ind1 = i
                          saw_first_nan = True
-                    if (saw_first_nan) and np.isnan(master_rad_1[0,i]):
+                    if (saw_first_nan) and np.isnan(master_rad_2[0,i]):
                          ind2 = i - 1
                          break
 
@@ -1325,7 +1329,7 @@ class GEOAkaze(object):
                data_slave  = pts2_m2
 
             if (master_f1 is not None) and (master_f2 is not None):
-                data_master = np.concatenate((pts1_m2,pts1_m2),axis=0)
+                data_master = np.concatenate((pts1_m1,pts1_m2),axis=0)
                 data_slave = np.concatenate((pts2_m1,pts2_m2),axis=0)
 
 
