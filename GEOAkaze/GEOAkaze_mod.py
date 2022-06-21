@@ -1301,11 +1301,13 @@ class GEOAkaze(object):
             if (master_f2 is not None):
                 saw_first_nan = False
                 for i in range(0,np.shape(master_rad_2)[1]):
-                    if ~np.isnan(master_rad_2[-1,i]):
-                       ind1 = i
-                       saw_first_nan = True
-                    if (saw_first_nan) and np.isnan(master_rad_2[-1,i]):
-                       ind2 = i - 1
+                    if not saw_first_nan:
+                      if ~np.isnan(master_rad_1[0,i]):
+                         ind1 = i
+                         saw_first_nan = True
+                    if (saw_first_nan) and np.isnan(master_rad_1[0,i]):
+                         ind2 = i - 1
+                         break
 
                 pts1_m2 = np.zeros((ind2-ind1+1,2))
                 pts2_m2 = np.zeros((ind2-ind1+1,2))
@@ -1323,8 +1325,8 @@ class GEOAkaze(object):
                data_slave  = pts2_m2
 
             if (master_f1 is not None) and (master_f2 is not None):
-                data_master = np.stack(pts1_m1,pts1_m2)
-                data_slave = np.stack(pts2_m1,pts2_m2)
+                data_master = np.concatenate((pts1_m2,pts1_m2),axis=0)
+                data_slave = np.concatenate((pts2_m1,pts2_m2),axis=0)
 
 
             self.slope_lat, self.intercept_lat, self.r_value1, \
