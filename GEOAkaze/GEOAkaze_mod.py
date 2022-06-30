@@ -1281,13 +1281,15 @@ class GEOAkaze(object):
            time_master_f2 = self.read_group_nc(master_f2,1,"Geolocation","Time")
            time_master_f2 = np.nanmean(time_master_f2)*3600
 
-        is_okay = False
+        is_okay = True
         if (master_f1 is not None):
             diff_t = np.abs(time_master_f1-time_slave)
-            if diff_t<12.0: is_okay = True 
+            print(diff_t)
+            if diff_t>12.0: is_okay = False 
         if (master_f2 is not None) :
             diff_t = np.abs(time_master_f2-time_slave)
-            if diff_t<12.0: is_okay = True 
+            print(diff_t)
+            if diff_t>12.0: is_okay = False 
 
         if (not is_okay):
             print("Time doesn't match - exiting")
