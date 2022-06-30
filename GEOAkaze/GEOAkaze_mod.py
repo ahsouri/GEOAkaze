@@ -1271,6 +1271,28 @@ class GEOAkaze(object):
         import numpy as np
         import matplotlib.pyplot as plt
 
+        # read time
+        time_slave = self.read_group_nc(slave_f,1,"Geolocation","Time")
+        time_slave = np.nanmean(time_slave)*3600
+        if not (master_f1 is None):
+           time_master_f1 = self.read_group_nc(master_f1,1,"Geolocation","Time")
+           time_master_f1 = np.nanmean(time_master_f1)*3600
+        if not (master_f2 is None):
+           time_master_f2 = self.read_group_nc(master_f2,1,"Geolocation","Time")
+           time_master_f2 = np.nanmean(time_master_f2)*3600
+
+        is_okay = False
+        if (master_f1 is not None):
+            diff_t = np.abs(time_master_f1-time_slave)
+            if diff_t<12.0: is_okay = True 
+        if (master_f2 is not None) :
+            diff_t = np.abs(time_master_f2-time_slave)
+            if diff_t<12.0: is_okay = True 
+
+        if (not is_okay):
+            print("Time doesn't match - exiting")
+            return 0
+        
         # read the slave and master
         _ ,lat_sl,lon_sl = self.read_rad(slave_f,0,1)
         if not (master_f1 is None):
