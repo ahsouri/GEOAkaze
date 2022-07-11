@@ -1258,12 +1258,13 @@ class GEOAkaze(object):
         rad1[:,:] = rad   
         ncfile.close()
 
-    def hammer(self,slave_f,master_f1=None,master_f2=None):
+    def hammer(self,slave_f,time_thr=12.0,master_f1=None,master_f2=None):
         ''' 
         fixing the failed case (slave_f) using previous/next 
         or both successful cases
         ARGS:
             fname (slave_f): slave file path
+            time_thr (float): the thresholds on defining neighbouring segment
             fname (master_f1): master file path (previous)
             fname (master_f2): master file path (next)
         '''
@@ -1285,11 +1286,11 @@ class GEOAkaze(object):
         if (master_f1 is not None):
             diff_t = np.abs(time_master_f1-time_slave)
             print(diff_t)
-            if diff_t>12.0: is_okay = False 
+            if diff_t>time_thr: is_okay = False 
         if (master_f2 is not None) :
             diff_t = np.abs(time_master_f2-time_slave)
             print(diff_t)
-            if diff_t>12.0: is_okay = False 
+            if diff_t>time_thr: is_okay = False 
 
         if (not is_okay):
             print("Time doesn't match - exiting")
