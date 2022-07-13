@@ -1173,7 +1173,7 @@ class GEOAkaze(object):
         h = svd_m[2]
         return h[-1,:]
     
-    def overwrite_latlon(self,target_nc_file):
+    def overwrite_latlon_L2(self,target_nc_file):
         ''' 
         overwriting a target nc files with corrected lats/lons
         ARGS:
@@ -1197,6 +1197,53 @@ class GEOAkaze(object):
 
         data_lat[:,:] = lats_grid_corrected
         data_lon[:,:] = lons_grid_corrected
+
+        ncfile.close()
+
+    def overwrite_latlon_L1(self,target_nc_file):
+        ''' 
+        overwriting a target nc files with corrected lats/lons
+        ARGS:
+            target_nc_file (char): the target nc file path
+        '''
+
+        from netCDF4 import Dataset
+
+        ncfile = Dataset(target_nc_file,'a',format="NETCDF4")
+        data_lat = ncfile.groups['Geolocation'].variables['Latitude']
+        data_lon = ncfile.groups['Geolocation'].variables['Longitude']
+        data_corlat = ncfile.groups['Geolocation'].variables['CornerLatitude']
+        data_corlon = ncfile.groups['Geolocation'].variables['CornerLongitude']
+
+        corlat = ncfile.groups['Geolocation'].variables['CornerLatitude'][:]
+        corlon = ncfile.groups['Geolocation'].variables['CornerLongitude'][:]
+
+        if (not self.forcer):
+           av_used = self.read_group_nc(target_nc_file,1,'SupportingData','AvionicsUsed')
+           ak_used= self.read_group_nc(target_nc_file,1,'SupportingData','AkazeUsed')
+           op_used = self.read_group_nc(target_nc_file,1,'SupportingData','OptimizedUsed')
+           if (op_used == 0 and ak_used == 0 and av_used == 1):
+              lat = self.read_group_nc(target_nc_file,1,'Geolocation','Latitude')[:]
+              lon = self.read_group_nc(target_nc_file,1,'Geolocation','Longitude')[:]
+           else:
+              lat = self.read_group_nc(target_nc_file,1,'SupportingData','AvionicsLatitude')[:]
+              lon = self.read_group_nc(target_nc_file,1,'SupportingData','AvionicsLongitude')[:]
+        else:
+            lat = self.read_group_nc(target_nc_file,1,'Geolocation','Latitude')[:]
+            lon = self.read_group_nc(target_nc_file,1,'Geolocation','Longitude')[:]  
+
+        if self.success == 1:
+           lats_grid_corrected = (lat-self.intercept_lat)/self.slope_lat
+           lons_grid_corrected = (lon-self.intercept_lon)/self.slope_lon
+           lats_cor_grid_corrected = (corlat-self.intercept_lat)/self.slope_lat
+           lons_cor_grid_corrected = (corlon-self.intercept_lon)/self.slope_lon           
+        else:
+           print("AKAZE failed so we should not do this!")
+
+        data_lat[:,:] = lats_grid_corrected
+        data_lon[:,:] = lons_grid_corrected
+        data_corlat[:,:,:] = lats_cor_grid_corrected
+        data_corlon[:,:,:] = lons_cor_grid_corrected
 
         ncfile.close()
 
