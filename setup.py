@@ -17,6 +17,6 @@ setup(name='GEOAkaze',
       license='MIT',
       packages=['GEOAkaze'],
       install_requires=[
-          'numpy','matplotlib','scipy','netCDF4','opencv-python','rasterio','utm','shapely','simplekml','palettable',scikit-image
+          'numpy','matplotlib','scipy','netCDF4','opencv-python','rasterio','utm','shapely','simplekml','palettable','scikit-image'
       ],
       zip_safe=False)
