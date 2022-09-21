@@ -60,19 +60,20 @@ class qa_geoakaze(object):
             fig = plt.figure(figsize=(8, 8))
             ax = fig.add_subplot(1, 1, 1, projection = pc)
             ax.set_extent([np.nanmin(mair_lon.flatten()), np.nanmax(mair_lon.flatten()),
-                           np.nanmin(mair_lat.flatten()), np.nanmax(mair_lat.flatten()),], crs = pc)
+                           np.nanmin(mair_lat.flatten()), np.nanmax(mair_lat.flatten())], crs = pc)
             # plotting mair
             ax.imshow(mair_gscale,origin='upper',
-               transform=self.crs,
+               extent = [np.nanmin(mair_lon.flatten()), np.nanmax(mair_lon.flatten()),
+                           np.nanmin(mair_lat.flatten()), np.nanmax(mair_lat.flatten())],
                interpolation='none')
             # plotting costlines
             ax.coastlines(resolution='50m', color='black', linewidth = 2)
             ax.add_feature(ccrs.cartopy.feature.STATES)
             # plotting title
             fcolor = "green" if success == 1 else "red"
-            plt.title('MAIR Grayscale for ' + str(fname), loc='left', color=fcolor, fontweight='bold', fontsize=16)
-            fig.savefig(self.temp_fld + "/" + fname + "_grayscale", format='png', dpi=300)
-
+            plt.title('MAIR Grayscale for ' + str(os.path.basename(fname)), loc='left', color=fcolor, fontweight='bold', fontsize=12)
+            fig.savefig(self.temp_fld + "/" + os.path.basename(fname) + "_grayscale.png", format='png', dpi=300)
+            plt.close()
     def histogram(self):
         '''
         plotting a histogram of shifts
@@ -81,7 +82,6 @@ class qa_geoakaze(object):
         # loop over files
         hist_x = []
         for fname in geoakaze_diag_fnames:
-            mair_gscale     = self.read_netcdf(fname,"slave_gray")
             mair_lat        = self.read_netcdf(fname,"lats_new")
             mair_lon        = self.read_netcdf(fname,"lons_new")
             mair_lat_old    = self.read_netcdf(fname,"lats_old")
@@ -98,7 +98,7 @@ class qa_geoakaze(object):
         plt.hist(hist_x, density=True, bins=30)  
         plt.ylabel('Probability')
         plt.xlabel('Error [m]')
-        fig.savefig(self.temp_fld + "/histogram", format='png', dpi=300)
+        fig.savefig(self.temp_fld + "/histogram.png", format='png', dpi=300)
 
     def trajectory(self):
 
@@ -119,4 +119,4 @@ class qa_geoakaze(object):
                print("file unreadable")
         fig = plt.figure(figsize=(8, 8))
         plt.scatter(lon_c, lat_c)
-        fig.savefig(self.temp_fld + "/trajectory", format='png', dpi=300)
+        fig.savefig(self.temp_fld + "/trajectory.png", format='png', dpi=300)
