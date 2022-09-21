@@ -7,6 +7,7 @@ from netCDF4 import Dataset
 import numpy as np
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
+from matplotlib.ticker import FormatStrFormatter
 
 class qa_geoakaze(object):
 
@@ -44,11 +45,15 @@ class qa_geoakaze(object):
         nc_fid.close()
         return np.squeeze(var)
 
-    def gray_scale(self):
+    def gray_scale(self,random_selection_n=None):
         '''
         plotting gray_scale images with information from geoakaze_nc_fld
         '''
         geoakaze_diag_fnames = sorted(glob.glob(self.geoakaze_nc_fld + '/*.nc'))
+        # perform the random sampling if it's needed.
+        if (random_selection_n is not None):
+            ind = np.random.randint(len(geoakaze_diag_fnames),size=random_selection_n)
+            geoakaze_diag_fnames = geoakaze_diag_fnames [ind]
         # loop over files
         for fname in geoakaze_diag_fnames:
             mair_gscale = self.read_netcdf(fname,"slave_gray")
@@ -58,22 +63,42 @@ class qa_geoakaze(object):
             # plate projection at the desired box
             pc = ccrs.PlateCarree()
             fig = plt.figure(figsize=(8, 8))
-            ax = fig.add_subplot(1, 1, 1, projection = pc)
+            ax = plt.axes(projection = pc)
             ax.set_extent([np.nanmin(mair_lon.flatten()), np.nanmax(mair_lon.flatten()),
                            np.nanmin(mair_lat.flatten()), np.nanmax(mair_lat.flatten())], crs = pc)
+            
             # plotting mair
-            ax.imshow(mair_gscale,origin='upper',
+            ax.imshow(mair_gscale,origin='lower',
                extent = [np.nanmin(mair_lon.flatten()), np.nanmax(mair_lon.flatten()),
                            np.nanmin(mair_lat.flatten()), np.nanmax(mair_lat.flatten())],
-               interpolation='none')
+               interpolation='nearest',aspect='auto')
+            
             # plotting costlines
             ax.coastlines(resolution='50m', color='black', linewidth = 2)
             ax.add_feature(ccrs.cartopy.feature.STATES)
-            # plotting title
+
+            # fixing tickers
+            x_ticks = np.arange(np.nanmin(mair_lon.flatten()), np.nanmax(mair_lon.flatten()), 0.03)
+            x_labels = np.linspace(np.nanmin(mair_lon.flatten()), np.nanmax(mair_lon.flatten()), np.size(x_ticks))
+            ax.set_xticks(x_ticks)
+            ax.set_xticklabels(x_labels, fontsize = 13)
+            ax.xaxis.set_major_formatter(FormatStrFormatter('%.3f'))
+
+            y_ticks = np.arange(np.nanmin(mair_lat.flatten()), np.nanmax(mair_lat.flatten()), 0.03)
+            y_labels = np.linspace(np.nanmin(mair_lat.flatten()), np.nanmax(mair_lat.flatten()), np.size(y_ticks))
+            ax.set_yticks(y_ticks)
+            ax.set_yticklabels(y_labels, fontsize = 13)
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%.3f'))
+
+            plt.xlabel('Lon',fontsize = 18)
+            plt.ylabel('Lat',fontsize = 18)
+
+            # plotting title and saving
             fcolor = "green" if success == 1 else "red"
             plt.title('MAIR Grayscale for ' + str(os.path.basename(fname)), loc='left', color=fcolor, fontweight='bold', fontsize=12)
             fig.savefig(self.temp_fld + "/" + os.path.basename(fname) + "_grayscale.png", format='png', dpi=300)
             plt.close()
+
     def histogram(self):
         '''
         plotting a histogram of shifts
@@ -111,7 +136,9 @@ class qa_geoakaze(object):
                nc_f = filename
                nc_fid = Dataset(nc_f, 'r')
                lat = nc_fid.groups["Geolocation"].variables["Latitude"][:]
+               lat[lat>90 or lat<-90] = np.nan
                lat_c.append(np.nanmean(lat,axis=1))
+               lat[lat>180 or lat<-180] = np.nan
                lon = nc_fid.groups["Geolocation"].variables["Longitude"][:]
                lon_c.append(np.nanmean(lon,axis=1))
                nc_fid.close()
