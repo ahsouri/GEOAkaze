@@ -52,8 +52,8 @@ class qa_geoakaze(object):
         # loop over files
         for fname in geoakaze_diag_fnames:
             mair_gscale = self.read_netcdf(fname,"slave_gray")
-            mair_lat    = self.read_netcdf(fname,"lat_new")
-            mair_lon    = self.read_netcdf(fname,"lon_new")
+            mair_lat    = self.read_netcdf(fname,"lats_new")
+            mair_lon    = self.read_netcdf(fname,"lons_new")
             success     = self.read_netcdf(fname,"success")
             # plate projection at the desired box
             pc = ccrs.PlateCarree()
@@ -82,10 +82,10 @@ class qa_geoakaze(object):
         hist_x = []
         for fname in geoakaze_diag_fnames:
             mair_gscale     = self.read_netcdf(fname,"slave_gray")
-            mair_lat        = self.read_netcdf(fname,"lat_new")
-            mair_lon        = self.read_netcdf(fname,"lon_new")
-            mair_lat_old    = self.read_netcdf(fname,"lat_old")
-            mair_lon_old    = self.read_netcdf(fname,"lon_old")
+            mair_lat        = self.read_netcdf(fname,"lats_new")
+            mair_lon        = self.read_netcdf(fname,"lons_new")
+            mair_lat_old    = self.read_netcdf(fname,"lats_old")
+            mair_lon_old    = self.read_netcdf(fname,"lons_old")
             success         = self.read_netcdf(fname,"success")
 
             if success == 1:
