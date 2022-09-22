@@ -54,13 +54,16 @@ class qa_geoakaze(object):
         # perform the random sampling if it's needed.
         if (random_selection_n is not None):
             ind = np.random.randint(len(geoakaze_diag_fnames),size=random_selection_n)
-            geoakaze_diag_fnames = geoakaze_diag_fnames [ind]
+            ind = list(ind)
+            geoakaze_diag_fnames = [ geoakaze_diag_fnames[i] for i in ind]
         # loop over files
         for fname in geoakaze_diag_fnames:
             mair_gscale = self.read_netcdf(fname,"slave_gray")
-            mst_gscale  = self.read_netcdf(fname,"master_gray")
+            msi_gscale  = self.read_netcdf(fname,"master_gray")
             mair_lat    = self.read_netcdf(fname,"lats_new")
             mair_lon    = self.read_netcdf(fname,"lons_new")
+            msi_lat    = self.read_netcdf(fname,"lats_old")
+            msi_lon    = self.read_netcdf(fname,"lons_old")
             success     = self.read_netcdf(fname,"success")
             # plate projection at the desired box
             pc = ccrs.PlateCarree()
@@ -74,12 +77,13 @@ class qa_geoakaze(object):
                extent = [np.nanmin(mair_lon.flatten()), np.nanmax(mair_lon.flatten()),
                            np.nanmin(mair_lat.flatten()), np.nanmax(mair_lat.flatten())],
                interpolation='nearest',aspect='auto')
-            
+
             # plotting msi
-            ax.imshow(mair_gscale,origin='lower',
-               extent = [np.nanmin(mair_lon.flatten()), np.nanmax(mair_lon.flatten()),
-                           np.nanmin(mair_lat.flatten()), np.nanmax(mair_lat.flatten())],
-               interpolation='nearest',aspect='auto',alpha=0.4)            
+            ax.imshow(msi_gscale,origin='lower',
+               extent = [np.nanmin(msi_lon.flatten()), np.nanmax(msi_lon.flatten()),
+                           np.nanmin(msi_lat.flatten()), np.nanmax(msi_lat.flatten())],
+               interpolation='nearest',aspect='auto',alpha=0.3)
+
             # plotting costlines
             ax.coastlines(resolution='50m', color='black', linewidth = 2)
             ax.add_feature(ccrs.cartopy.feature.STATES)
@@ -102,7 +106,8 @@ class qa_geoakaze(object):
 
             # plotting title and saving
             fcolor = "green" if success == 1 else "red"
-            plt.title('MAIR Grayscale for ' + str(os.path.basename(fname)), loc='left', color=fcolor, fontweight='bold', fontsize=12)
+            plt.title('MAIR Grayscale for ' + str(os.path.basename(fname)), 
+                      loc='left', color=fcolor, fontweight='bold', fontsize=10)
             fig.savefig(self.temp_fld + "/" + os.path.basename(fname) + "_grayscale.png", format='png', dpi=300)
             plt.close()
 
@@ -148,6 +153,10 @@ class qa_geoakaze(object):
                plt.scatter(np.nanmean(lon,axis=1), np.nanmean(lat,axis=1), s=2, color="blue")
             except:
                print("the file is not readable")
+
+        
+        plt.xlabel('Lon',fontsize = 18)
+        plt.ylabel('Lat',fontsize = 18)
         fig.savefig(self.temp_fld + "/trajectory.png", format='png', dpi=300)
 
     def topdf(self):
@@ -166,8 +175,41 @@ class qa_geoakaze(object):
             pdfobj.cell(w, 9, title, 1, 1, 'C', 1)
             # Line break
             pdfobj.ln(10)
+        
+        def body(pdfobj,bd1):
+            # Times 12
+            pdfobj.set_font('Times', '', 12)
+            # Output justified text
+            pdfobj.multi_cell(0, 5, bd1)
+            # Line break
+            pdfobj.ln()
+
+        geoakaze_kmz_fnames = sorted(glob.glob(self.geoakaze_kmz_fld + '/*.kmz'))
+        ind = np.random.randint(len(geoakaze_kmz_fnames),size=15)
+        ind = list(ind)
+        geoakaze_kmz_fnames = [ geoakaze_kmz_fnames[i] for i in ind]
 
         pdf = FPDF()
         pdf.add_page()
-        header(pdf,"KMZ files")
-        pdf.output('tuto3.pdf', 'F')
+        # printing kmz paths
+        w = header(pdf,"KMZ files")
+        for fname in geoakaze_kmz_fnames:
+            body(pdf,str(fname))
+        # printing grayscales
+        pdf.add_page()
+        w = header(pdf,"MAIR grayscales")
+        grayscale_png = sorted(glob.glob(self.temp_fld + '/*_grayscale.png'))
+        for fname in grayscale_png:
+            pdf.image(fname,10,w,180,200)
+            pdf.add_page()
+        # printing trajectory
+        w = header(pdf,"Flight Path")
+        traj_png = glob.glob(self.temp_fld + '/traj*.png')
+        pdf.image(traj_png[0],10,w,200,220)
+        # printing histogram
+        pdf.add_page()
+        w = header(pdf,"Histogram of Shifts")
+        traj_png = glob.glob(self.temp_fld + '/hist*.png')
+        pdf.image(traj_png[0],10,w,200,220)
+        #writing
+        pdf.output(self.output_pdf, 'F')

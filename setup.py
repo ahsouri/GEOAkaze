@@ -8,7 +8,7 @@ with open('README.md') as f:
     readme = f.read()
 
 setup(name='GEOAkaze',
-      version='0.1.0',
+      version='0.2.1',
       description='Geolocation correction using Akaze',
       long_description=readme,
       long_description_content_type='text/markdown',
@@ -17,6 +17,6 @@ setup(name='GEOAkaze',
       license='MIT',
       packages=['GEOAkaze'],
       install_requires=[
-          'numpy','matplotlib','scipy','netCDF4','opencv-python','rasterio','utm','shapely','simplekml','palettable','scikit-image'
-      ],
+          'numpy','matplotlib','scipy','netCDF4','opencv-python','rasterio','utm','shapely','simplekml','palettable','scikit-image',
+          'fpdf'],
       zip_safe=False)
