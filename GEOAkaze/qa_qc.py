@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 from matplotlib.ticker import FormatStrFormatter
+from fpdf import FPDF
 
 class qa_geoakaze(object):
 
@@ -57,6 +58,7 @@ class qa_geoakaze(object):
         # loop over files
         for fname in geoakaze_diag_fnames:
             mair_gscale = self.read_netcdf(fname,"slave_gray")
+            mst_gscale  = self.read_netcdf(fname,"master_gray")
             mair_lat    = self.read_netcdf(fname,"lats_new")
             mair_lon    = self.read_netcdf(fname,"lons_new")
             success     = self.read_netcdf(fname,"success")
@@ -73,6 +75,11 @@ class qa_geoakaze(object):
                            np.nanmin(mair_lat.flatten()), np.nanmax(mair_lat.flatten())],
                interpolation='nearest',aspect='auto')
             
+            # plotting msi
+            ax.imshow(mair_gscale,origin='lower',
+               extent = [np.nanmin(mair_lon.flatten()), np.nanmax(mair_lon.flatten()),
+                           np.nanmin(mair_lat.flatten()), np.nanmax(mair_lat.flatten())],
+               interpolation='nearest',aspect='auto',alpha=0.4)            
             # plotting costlines
             ax.coastlines(resolution='50m', color='black', linewidth = 2)
             ax.add_feature(ccrs.cartopy.feature.STATES)
@@ -127,23 +134,40 @@ class qa_geoakaze(object):
 
     def trajectory(self):
 
-        l1_files = sorted(glob.glob(self.L1b_folder + "/*.nc"))
 
-        lat_c = []
-        lon_c = []
+        l1_files = sorted(glob.glob(self.L1b_folder + "/*.nc"))
+        fig = plt.figure(figsize=(8, 8))
+
         for filename in l1_files:
             try:
                nc_f = filename
                nc_fid = Dataset(nc_f, 'r')
                lat = nc_fid.groups["Geolocation"].variables["Latitude"][:]
-               lat[lat>90 or lat<-90] = np.nan
-               lat_c.append(np.nanmean(lat,axis=1))
-               lat[lat>180 or lat<-180] = np.nan
                lon = nc_fid.groups["Geolocation"].variables["Longitude"][:]
-               lon_c.append(np.nanmean(lon,axis=1))
                nc_fid.close()
+               plt.scatter(np.nanmean(lon,axis=1), np.nanmean(lat,axis=1), s=2, color="blue")
             except:
-               print("file unreadable")
-        fig = plt.figure(figsize=(8, 8))
-        plt.scatter(lon_c, lat_c)
+               print("the file is not readable")
         fig.savefig(self.temp_fld + "/trajectory.png", format='png', dpi=300)
+
+    def topdf(self):
+
+        def header(pdfobj,title):
+            # Arial bold 15
+            pdfobj.set_font('Arial', 'B', 18)
+            # Calculate width of title and position
+            w = pdfobj.get_string_width(title) + 6
+            pdfobj.set_x((210 - w) / 2)
+            pdfobj.set_fill_color(255, 255, 255)
+            pdfobj.set_text_color(0, 0, 0)
+            # Thickness of frame (1 mm)
+            pdfobj.set_line_width(1)
+            # Title
+            pdfobj.cell(w, 9, title, 1, 1, 'C', 1)
+            # Line break
+            pdfobj.ln(10)
+
+        pdf = FPDF()
+        pdf.add_page()
+        header(pdf,"KMZ files")
+        pdf.output('tuto3.pdf', 'F')
