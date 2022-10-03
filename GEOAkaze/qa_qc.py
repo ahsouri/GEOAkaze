@@ -116,6 +116,22 @@ class qa_geoakaze(object):
             fig.savefig(self.temp_fld + "/" + os.path.basename(fname) + "_grayscale.png", format='png', dpi=300)
             plt.close()
 
+    def counter(self):
+        '''
+        counting failed vs succeeded cases
+        '''
+        geoakaze_diag_fnames = sorted(glob.glob(self.geoakaze_nc_fld + '/*.nc'))
+        # loop over files
+        failed_n = 0
+        succeeded_n = 0
+        for fname in geoakaze_diag_fnames:
+            success         = self.read_netcdf(fname,"success")
+            if success==1: succeeded_n+=1
+            if success==0: failed_n+=1
+        
+        self.success_rate = succeeded_n/(succeeded_n + failed_n)
+        self.failed_rate = 1 - self.success_rate
+
     def histogram(self):
         '''
         plotting a histogram of shifts
@@ -209,6 +225,11 @@ class qa_geoakaze(object):
         pdf.cell(180, 20, txt = 'Amir H. Souri', border = 0, ln = 1, align = "C")
         pdf.cell(180, 20, txt = 'Contact: ahsouri@gmail.com', border = 0, ln = 1, align = "C")
         pdf.add_page()
+        
+        # printing success and failed stats
+        w = header(pdf,"Overall Stat")
+        body(pdf,"Success Rate = " + f"{self.success_rate*100.0:03}")
+        body(pdf,"Failed Rate = " + f"{self.failed_rate*100.0:03}")
         
         # printing kmz paths
         w = header(pdf,"KMZ files")
