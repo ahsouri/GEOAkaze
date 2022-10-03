@@ -230,6 +230,7 @@ class qa_geoakaze(object):
         w = header(pdf,"Overall Stat")
         body(pdf,"Success Rate = " + f"{self.success_rate*100.0:03}")
         body(pdf,"Failed Rate = " + f"{self.failed_rate*100.0:03}")
+        pdf.add_page()
         
         # printing kmz paths
         w = header(pdf,"KMZ files")
