@@ -1194,6 +1194,7 @@ class GEOAkaze(object):
            lons_grid_corrected = (lon-self.intercept_lon)/self.slope_lon
         else:
            print("AKAZE failed so we should not do this!")
+           return 0 
 
         data_lat[:,:] = lats_grid_corrected
         data_lon[:,:] = lons_grid_corrected
