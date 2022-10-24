@@ -80,13 +80,13 @@ class qa_geoakaze(object):
             ax.imshow(mair_gscale,origin='lower',
                extent = [np.nanmin(mair_lon.flatten()), np.nanmax(mair_lon.flatten()),
                            np.nanmin(mair_lat.flatten()), np.nanmax(mair_lat.flatten())],
-               interpolation='nearest',aspect='auto',cmap=mpl.colormaps['viridis'])
+               interpolation='nearest',aspect='auto')
 
             # plotting msi
             ax.imshow(msi_gscale,origin='lower',
                extent = [np.nanmin(msi_lon.flatten()), np.nanmax(msi_lon.flatten()),
                            np.nanmin(msi_lat.flatten()), np.nanmax(msi_lat.flatten())],
-               interpolation='nearest',aspect='auto',alpha=0.3,cmap=mpl.colormaps['viridis'])
+               interpolation='nearest',aspect='auto',alpha=0.3)
 
             # plotting costlines
             ax.coastlines(resolution='50m', color='black', linewidth = 2)
