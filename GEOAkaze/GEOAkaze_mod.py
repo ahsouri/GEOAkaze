@@ -1227,6 +1227,8 @@ class GEOAkaze(object):
         corlat = ncfile.groups['Geolocation'].variables['CornerLatitude'][:]
         corlon = ncfile.groups['Geolocation'].variables['CornerLongitude'][:]
 
+        akazesuccess = ncfile.groups['Geolocation'].variables['AkazeSuccess']
+
         if (not self.forcer):
            av_used = self.read_group_nc(target_nc_file,1,'SupportingData','AvionicsUsed')
            ak_used= self.read_group_nc(target_nc_file,1,'SupportingData','AkazeUsed')
@@ -1254,6 +1256,7 @@ class GEOAkaze(object):
         data_lon[:,:] = lons_grid_corrected
         data_corlat[:,:,:] = lats_cor_grid_corrected
         data_corlon[:,:,:] = lons_cor_grid_corrected
+        akazesuccess[:] = self.success
 
         ncfile.close()
 
@@ -1373,8 +1376,6 @@ class GEOAkaze(object):
                          ind2 = i - 1
                          break
 
-                print(ind1)
-                print(ind2)
                 pts1_m1 = np.zeros((ind2-ind1+1,2))
                 pts2_m1 = np.zeros((ind2-ind1+1,2))
 
