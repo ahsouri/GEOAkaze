@@ -147,7 +147,7 @@ class GEOAkaze(object):
         nc_fid.close()
         return np.squeeze(out) 
 
-    def read_rad(self,fname,typesat,bandindex=None,w1=None,w2=None):
+    def read_rad(self,fname,typesat,bandindex=None,w1=None,w2=None, new_dim = False):
         '''
         Read the intensity for differrent files/satellites
         ARGS:
@@ -160,6 +160,7 @@ class GEOAkaze(object):
 
             bandindex (int): the index of band (e.g., =1 for O2)
             w1,w2 (int): the range of wavelength indices for averaging
+            new_dim (bool): true means the new dimension framework for L1a,b
         OUT:
             radiance, latitude, longitude
         '''
@@ -199,9 +200,16 @@ class GEOAkaze(object):
 
            # averaging radiance
            if not (w1 is None): #w1 and w2 should be set or none of them
-               rad = np.nanmean(rad[w1:w2,:,:],axis=0)
+                if new_dim:
+                  rad = np.nanmean(rad[:,:,w1:w2],axis=0)
+                else:
+                  rad = np.nanmean(rad[w1:w2,:,:],axis=0)
            else:
-               rad = np.nanmean(rad[:,:,:],axis=0)
+                if new_dim:
+                  rad = np.nanmean(rad[:,:,:],axis=2)
+                else:
+                  rad = np.nanmean(rad[:,:,:],axis=2)      
+
         elif typesat == 2: #landsat (nc)
             rad = self.read_netcdf(fname,'Landsat')
             lat = self.read_netcdf(fname,'Lat')
@@ -1346,11 +1354,11 @@ class GEOAkaze(object):
             return 0
         
         # read the slave and master
-        _ ,lat_sl,lon_sl = self.read_rad(slave_f,0,1)
+        _ ,lat_sl,lon_sl = self.read_rad(slave_f,0,1,new_dim=True)
         if not (master_f1 is None):
-           master_rad_1,lat_m1,lon_m1 = self.read_rad(master_f1,0,1)
+           master_rad_1,lat_m1,lon_m1 = self.read_rad(master_f1,0,1,new_dim=True)
         if not (master_f2 is None):
-           master_rad_2,lat_m2,lon_m2 = self.read_rad(master_f2,0,1)
+           master_rad_2,lat_m2,lon_m2 = self.read_rad(master_f2,0,1,new_dim=True)
        
         if (master_f1 is not None) or (master_f2 is not None):
             #find the indices of non-nan gray scales
