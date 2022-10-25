@@ -8,7 +8,7 @@ with open('README.md') as f:
     readme = f.read()
 
 setup(name='GEOAkaze',
-      version='0.2.1',
+      version='0.2.2',
       description='Geolocation correction using Akaze',
       long_description=readme,
       long_description_content_type='text/markdown',
