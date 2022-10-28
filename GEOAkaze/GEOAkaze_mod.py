@@ -201,14 +201,14 @@ class GEOAkaze(object):
            # averaging radiance
            if not (w1 is None): #w1 and w2 should be set or none of them
                 if new_dim:
-                  rad = np.nanmean(rad[:,:,w1:w2],axis=0)
+                  rad = np.nanmean(rad[:,:,w1:w2],axis=2)
                 else:
                   rad = np.nanmean(rad[w1:w2,:,:],axis=0)
            else:
                 if new_dim:
                   rad = np.nanmean(rad[:,:,:],axis=2)
                 else:
-                  rad = np.nanmean(rad[:,:,:],axis=2)      
+                  rad = np.nanmean(rad[:,:,:],axis=0)      
 
         elif typesat == 2: #landsat (nc)
             rad = self.read_netcdf(fname,'Landsat')
