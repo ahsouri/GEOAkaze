@@ -731,8 +731,8 @@ class GEOAkaze(object):
             # the file size is to prevent some bad/incomplete MSI images from
             # getting involved
             if file_size>15096676:
-               if  ((p_master.intersects(p_slave)) and 100.0*(p_master.intersection(p_slave).area/p_slave.area)>self.msi_area_threshold) or
-                   p_master.contains(p_slave):
+               if  (((p_master.intersects(p_slave)) and 100.0*(p_master.intersection(p_slave).area/p_slave.area)>self.msi_area_threshold)
+                    or (p_master.contains(p_slave))):
                     intersect_box.append(fname)
                     date_tmp = fname.split("_")
                     date_tmp = date_tmp[-2]
