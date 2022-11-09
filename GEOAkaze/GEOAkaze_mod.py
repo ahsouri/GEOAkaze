@@ -9,7 +9,7 @@ class GEOAkaze(object):
     def __init__(self,slavefile,masterfile,gridsize,typesat_slave,typesat_master,dist_thr,
                    min_samples = 3, residual_threshold= 0.0001, msi_clim_fld=None,is_histeq=True,is_destriping=False,img_based=False,
                    dx_buffer=None,forcer = False,forcer_use_av = False,bandindex_slave=1,bandindex_master=None,
-                   w1=None,w2=None,w3=None,w4=None):
+                   w1=None,w2=None,w3=None,w4=None, msi_area_threshold = 33.0):
             
             import os.path
             import glob
@@ -40,8 +40,10 @@ class GEOAkaze(object):
                 w1,w2 (int): boundaries for wavelength index of radiance to be averaged. (slave) 
                 w3,w4 (int): boundaries for wavelength index of radiance to be averaged. (master) 
                 img_based (bool): a flag to know if two images should be coregistered in the image
-                                    domain (true) as opposed to the geographic domain (false)             
-            '''        
+                                    domain (true) as opposed to the geographic domain (false)
+                msi_area_threshold (float): if the overlapped area between MSI and MAIR is below
+                                            this percentage, we skip the MSI file.
+            '''
 
             # check if the slavefile is a folder or a file
             if os.path.isdir(os.path.abspath(slavefile[0])):
@@ -104,6 +106,7 @@ class GEOAkaze(object):
             self.min_samples = min_samples
             self.residual_threshold = residual_threshold
             self.forcer_use_av = forcer_use_av
+            self.msi_area_threshold = msi_area_threshold
 
     def read_netcdf(self,filename,var):
         ''' 
@@ -361,8 +364,7 @@ class GEOAkaze(object):
                 final_msi = final_msi + r
             # a scaling factor should be applied to make ref physical
             self.rawmaster = final_msi/10000.0
-            r = final_msi       
-        
+            r = final_msi
         # normalizing between 0 and 1 based on min/max
         self.master = cv2.normalize(r,np.zeros(r.shape, np.double),0.0,1.0,cv2.NORM_MINMAX) 
         #histogrram equalization for enhancing image contrast
@@ -382,8 +384,8 @@ class GEOAkaze(object):
             lons, lats (list, floats): list of longitude/latitude arrays
         OUT:
             mosaic, gridded_lat, gridded_lon
-        ''' 
-        import numpy as np      
+        '''
+        import numpy as np
         from scipy.spatial import Delaunay
         from scipy.interpolate import LinearNDInterpolator
 
@@ -403,7 +405,7 @@ class GEOAkaze(object):
         max_lat = np.nanmax(max_lat)
         min_lon = np.nanmin(min_lon)
         max_lon = np.nanmax(max_lon)
-        
+
         # adding a buffer around the corner
         if (self.dx_buffer is None):
            dx = 0.0
@@ -454,9 +456,9 @@ class GEOAkaze(object):
            lon(float) : longitude
         OUT:
            rad(float) : radiance
-        ''' 
+        '''
         import numpy as np
-        from scipy.interpolate import griddata 
+        from scipy.interpolate import griddata
 
         # find the range in lon and lat of the slave image
         lon_range = np.array([min(self.lons_grid.flatten()),max(self.lons_grid.flatten())])
@@ -490,7 +492,7 @@ class GEOAkaze(object):
         OUT:
             slope_lon,slope_lat,intercept_lon,intercept_lat (float) : correction factors
             success (0 or 1): 0->failed, 1->succeeded
-        ''' 
+        '''
         import cv2
         import numpy as np
         from scipy import stats
@@ -629,7 +631,7 @@ class GEOAkaze(object):
            data array [x,y] (float)
         OUT:
            inliners [x,y] (float)
-        ''' 
+        '''
         # Fit line using all data
         from skimage.measure import LineModelND, ransac
         import numpy as np
@@ -686,7 +688,7 @@ class GEOAkaze(object):
         OUT:
            msi_gray (float, array): the grayscale image of MSI
            lat_msi, lon_msi (floats): longitudes/latitudes of MSI
-        ''' 
+        '''
         # importing libraries
         from numpy import dtype
         import numpy as np
@@ -694,6 +696,7 @@ class GEOAkaze(object):
         import utm
         import os
         from shapely.geometry import Polygon
+        import matplotlib.pyplot as plt
 
         intersect_box = []
         msi_date_intsec = []
@@ -727,14 +730,18 @@ class GEOAkaze(object):
             # see if the MSI falls in the slave image
             # the file size is to prevent some bad/incomplete MSI images from
             # getting involved
-            if  (p_master.intersects(p_slave)) and file_size>15096676:
+            if file_size>15096676:
+               if  ((p_master.intersects(p_slave)) and 100.0*(p_master.intersection(p_slave).area/p_slave.area)>self.msi_area_threshold) or
+                   p_master.contains(p_slave):
                     intersect_box.append(fname)
                     date_tmp = fname.split("_")
                     date_tmp = date_tmp[-2]
                     date_tmp = date_tmp.split("T")
                     date_tmp = float(date_tmp[0])
-                    msi_date_intsec.append(date_tmp)            
-        
+                    msi_date_intsec.append(date_tmp)
+            msi_grays = []
+            lat_msis = []
+            lon_msis = []
         if (not intersect_box):
             print('No MSI files being relevant to the targeted location/time were found, please fetch more MSI data')
             if (self.msi_clim_fld is not None):
@@ -748,7 +755,7 @@ class GEOAkaze(object):
                 lat_msi = self.lats_grid
                 lon_msi = self.lons_grid
             return msi_gray,lat_msi,lon_msi
-        
+
         if intersect_box: # there is/are MSIs falling in the slave domain
            # date because we want to find the closet image
            dist_date = np.abs(np.array(msi_date_intsec) - float(self.yyyymmdd))
@@ -763,7 +770,7 @@ class GEOAkaze(object):
                        break
                    index_chosen_sorted.append(j[p])
                    counter = counter + 1
-                   
+
            msi_grays = []
            lat_msis = []
            lon_msis = []
@@ -813,7 +820,7 @@ class GEOAkaze(object):
         OUT:
            msi_gray (float, array): the grayscale image of MSI
            lat_msi, lon_msi (floats): longitudes/latitudes of MSI
-        ''' 
+        '''
         # importing libraries
         from numpy import dtype
         import glob
